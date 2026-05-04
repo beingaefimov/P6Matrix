@@ -104,6 +104,7 @@ npm run build
 | Перетаскивание границы колонки / Drag column border | Изменение ширины колонки названий / Change name column width |
 | Перетаскивание по шкале времени / Drag on timeline | Зум графика / Zoom chart |
 | Перетаскивание внутри диаграммы, но не на работе / Drag inside diagram but not on activity | Перемещение графика / Pan chart |
+| Перетаскивание работы на другую работу / Drag activity on activity | FS |
 
 ### Кнопки панели
 
