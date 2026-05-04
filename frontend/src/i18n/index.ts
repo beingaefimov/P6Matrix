@@ -1,0 +1,81 @@
+import i18n from 'i18next'
+import { initReactI18next } from 'react-i18next'
+import LanguageDetector from 'i18next-browser-languagedetector'
+
+const resources = {
+  en: {
+    translation: {
+      app_title: 'P6Matrix', app_subtitle: 'CPM Scheduler with Matrix Engine',
+      upload_title: 'Upload Project File', upload_hint: 'Drag & drop or click to select .pxp or .xer file',
+      upload_formats: 'Supported: XER, PXP format',
+      btn_schedule: 'Calculate Schedule', btn_level: 'Level Resources', btn_download_pxp: 'Download PXP', btn_recalculate: 'Recalculate',
+      tab_gantt: 'Gantt Chart', tab_table: 'Activity Table', tab_resources: 'Resources', tab_pxp: 'PXP Source',
+      col_id: 'ID', col_name: 'Name', col_dur: 'Dur', col_es: 'Early Start', col_ef: 'Early Finish',
+      col_ls: 'Late Start', col_lf: 'Late Finish', col_tf: 'TF', col_ff: 'FF', col_crit: 'Critical',
+      project_duration: 'Project Duration', days: 'days', finish_date: 'Finish', critical_path: 'Critical Path',
+      activities_count: 'Activities', warnings: 'Conversion Warnings', error_title: 'Error',
+      loading: 'Calculating…', converting_xer: 'Converting XER…',
+      no_project: 'No project loaded', no_project_hint: 'Upload a .pxp or .xer file to get started',
+      resource_load: 'Resource Load', max_units: 'Max', peak_load: 'Peak', overloaded: 'Overloaded', ok: 'OK',
+      level_within_float: 'Level within float only', days_suffix: 'd', critical_badge: 'CRIT', hard_start_badge: 'HARD',
+      lang_switch: 'RU', task: 'Task', expand_all: 'Expand', collapse_all: 'Collapse', show_connections: 'Links',
+      detail_panel_title: 'Activity Details', detail_section_general: 'General', detail_section_dates: 'Dates',
+      detail_section_float: 'Float', detail_section_constraints: 'Constraints', detail_section_notes: 'Notes',
+      detail_section_udf: 'User Defined Fields', detail_section_duration: 'Duration',
+      detail_id: 'Activity ID', detail_name: 'Name', detail_type: 'Activity Type', detail_duration: 'Original Duration',
+      planned_duration: 'Planned', actual_duration: 'Actual', remaining_duration: 'Remaining',
+      detail_complete: '% Complete', detail_priority: 'Priority', detail_actual_start: 'Actual Start',
+      detail_actual_finish: 'Actual Finish', detail_constraint_type: 'Constraint Type', detail_constraint_date: 'Constraint Date',
+      detail_notes: 'Notes', yes: 'Yes', no: 'No', hard_start: 'Hard Start',
+      completed: 'Completed', resources_title: 'Resources', planned_units: 'Planned', actual_qty: 'Actual', remaining_qty: 'Remaining',
+      select_resource: 'Select resource…', select_resources: 'Resources', select_all_res: 'Select all', clear_selection: 'Clear',
+      add_resource: 'Add', remove: 'Remove', predecessors: 'Predecessors', successors: 'Successors',
+      select_activity: 'Select activity…', relation_type: 'Type', lag_days: 'Lag', add_predecessor: 'Add',
+      filter_all: 'All Resources', filter_overloaded: 'Overloaded', filter_underloaded: 'Underloaded',
+      no_resources_match: 'No resources match the filter', create_relation: 'Create link',
+      drop_to_link_hint: 'Release on another bar to create FS link', shift: 'Shift', new_start: 'New start',
+      completed_badge: 'DONE',
+    }
+  },
+  ru: {
+    translation: {
+      app_title: 'P6Matrix', app_subtitle: 'CPM Планировщик с матричным движком',
+      upload_title: 'Загрузить файл проекта', upload_hint: 'Перетащите или нажмите для выбора .pxp или .xer файла',
+      upload_formats: 'Поддерживается: XER, формат PXP',
+      btn_schedule: 'Рассчитать расписание', btn_level: 'Выровнять ресурсы', btn_download_pxp: 'Скачать PXP', btn_recalculate: 'Пересчитать',
+      tab_gantt: 'Диаграмма Ганта', tab_table: 'Таблица работ', tab_resources: 'Ресурсы', tab_pxp: 'PXP исходник',
+      col_id: 'ID', col_name: 'Название', col_dur: 'Дл.', col_es: 'Раннее начало', col_ef: 'Раннее окончание',
+      col_ls: 'Позднее начало', col_lf: 'Позднее окончание', col_tf: 'ТР', col_ff: 'СР', col_crit: 'Крит.',
+      project_duration: 'Длительность проекта', days: 'дней', finish_date: 'Окончание', critical_path: 'Критический путь',
+      activities_count: 'Работ', warnings: 'Предупреждения конвертации', error_title: 'Ошибка',
+      loading: 'Вычисление…', converting_xer: 'Конвертация XER…',
+      no_project: 'Проект не загружен', no_project_hint: 'Загрузите .pxp или .xer файл для начала работы',
+      resource_load: 'Нагрузка ресурсов', max_units: 'Макс.', peak_load: 'Пик', overloaded: 'Перегрузка', ok: 'ОК',
+      level_within_float: 'Только в пределах резерва', days_suffix: 'д', critical_badge: 'КП', hard_start_badge: 'ЖСТ',
+      lang_switch: 'EN', task: 'Работа', expand_all: 'Развернуть', collapse_all: 'Свернуть', show_connections: 'Связи',
+      detail_panel_title: 'Свойства работы', detail_section_general: 'Общие', detail_section_dates: 'Даты',
+      detail_section_float: 'Резервы', detail_section_constraints: 'Ограничения', detail_section_notes: 'Примечания',
+      detail_section_udf: 'Пользовательские поля (UDF)', detail_section_duration: 'Длительность',
+      detail_id: 'ID работы', detail_name: 'Название', detail_type: 'Тип работы', detail_duration: 'Исходная длительность',
+      planned_duration: 'Плановая', actual_duration: 'Фактическая', remaining_duration: 'Остаток',
+      detail_complete: '% выполнения', detail_priority: 'Приоритет', detail_actual_start: 'Факт. начало',
+      detail_actual_finish: 'Факт. окончание', detail_constraint_type: 'Тип ограничения', detail_constraint_date: 'Дата ограничения',
+      detail_notes: 'Примечания', yes: 'Да', no: 'Нет', hard_start: 'Жёсткий старт',
+      completed: 'Завершено', resources_title: 'Ресурсы', planned_units: 'Плановая загрузка', actual_qty: 'Факт', remaining_qty: 'Остаток',
+      select_resource: 'Выберите ресурс…', select_resources: 'Ресурсы', select_all_res: 'Выбрать все', clear_selection: 'Сбросить',
+      add_resource: 'Добавить', remove: 'Удалить', predecessors: 'Предшественники', successors: 'Последователи',
+      select_activity: 'Выберите работу…', relation_type: 'Тип', lag_days: 'Лаг', add_predecessor: 'Добавить',
+      filter_all: 'Все ресурсы', filter_overloaded: 'Перегруженные', filter_underloaded: 'Недогруженные',
+      no_resources_match: 'Нет ресурсов, подходящих под фильтр', create_relation: 'Создать связь',
+      drop_to_link_hint: 'Отпустите на другой задаче для создания FS-связи', shift: 'Сдвиг', new_start: 'Новое начало',
+      completed_badge: 'Заверш',
+    }
+  }
+}
+
+i18n.use(LanguageDetector).use(initReactI18next).init({
+  resources, fallbackLng: 'ru', interpolation: { escapeValue: false },
+  detection: { order: ['localStorage', 'navigator'], caches: ['localStorage'] }
+})
+
+export default i18n
