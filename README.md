@@ -7,6 +7,8 @@
 Application for project schedule calculation using the Critical Path Method (CPM) with a matrix engine.
 Planning to later use WebGPU for schedule calculation and resource leveling, which will allow displaying the entire project with minimal delays by fetching only minimal activity and assignment data from the backend
 
+![animated](animated.gif)
+
 ---
 
 ## Установка и запуск / Installation & Setup
