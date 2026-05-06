@@ -1,0 +1,207 @@
+# P6Matrix Test Project — Resource Leveling Demo
+# 40 tasks, 10 resources, intentional overloads
+
+@META
+project_id   = TEST-001
+project_name = Construction of office building (leveling test)
+start_date   = 2024-01-01
+data_date    = 2024-01-01
+must_finish  = NULL
+calendar     = 5d8h
+duration_unit = days
+
+@ACTIVITIES
+# id | name | duration | type | cal_id | parent_id | constraint_es | constraint_type | actual_start | actual_finish | pct_complete | priority | notes | actual_duration | remaining_duration
+A01 | Foundation design                        | 10 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A02 | Surveying works                           |  5 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A03 | Site preparation                          |  8 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A04 | Rebar procurement                         |  6 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A05 | Concrete procurement                      |  4 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A06 | Excavation — pit                          | 12 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A07 | Pile driving                              |  8 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A08 | Foundation rebar                          |  7 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A09 | Foundation concrete                       |  6 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A10 | Foundation waterproofing                  |  5 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A11 | Column installation 1st floor             |  8 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A12 | Slab installation 1st floor               |  6 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A13 | Column installation 2nd floor             |  8 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A14 | Slab installation 2nd floor               |  6 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A15 | Column installation 3rd floor             |  8 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A16 | Slab installation 3rd floor               |  6 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A17 | Roofing works                             | 10 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A18 | Façade works — brick                      | 15 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A19 | Window installation                       |  8 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A20 | Door installation                         |  5 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A21 | Electrical — wiring                       | 12 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A22 | Electrical — panels                       |  6 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A23 | Plumbing — pipes                          | 10 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A24 | Plumbing — fixtures                       |  6 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A25 | Ventilation — ducts                       |  8 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A26 | Ventilation — equipment                   |  5 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A27 | Plastering walls                          | 14 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A28 | Screed flooring                           |  8 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A29 | Tile laying — bathrooms                   |  6 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A30 | Painting walls                            | 10 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A31 | Parquet laying                            |  8 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A32 | Suspended ceilings                        |  7 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A33 | Elevator equipment                        |  6 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A34 | Landscaping                               | 10 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A35 | Asphalt paving parking lot                |  6 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A36 | Engineering systems commissioning         |  8 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A37 | Cleaning and janitorial                   |  4 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A38 | Technical supervision                     | 10 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A39 | Acceptance and punch list                 |  5 | task_dependent |  |  |  |  |  |  | 0 | 0 |  |  |
+A40 | Handover to client                        |  0 | milestone      |  |  |  |  |  |  | 0 | 0 |  |  |
+
+@RELATIONS
+# pred | succ | type | lag
+A01 | A06 | FS | 0
+A01 | A04 | FS | 0
+A01 | A05 | FS | 0
+A02 | A06 | FS | 0
+A03 | A06 | FS | 0
+A04 | A08 | FS | 0
+A05 | A09 | FS | 0
+A06 | A07 | FS | 0
+A07 | A08 | FS | 0
+A08 | A09 | FS | 0
+A09 | A10 | FS | 0
+A10 | A11 | FS | 0
+A11 | A12 | FS | 0
+A11 | A18 | SS | 2
+A12 | A13 | FS | 0
+A13 | A14 | FS | 0
+A14 | A15 | FS | 0
+A15 | A16 | FS | 0
+A16 | A17 | FS | 0
+A16 | A19 | FS | 2
+A17 | A33 | FS | 0
+A18 | A19 | FS | 0
+A19 | A20 | FS | 0
+A12 | A21 | SS | 4
+A21 | A22 | FS | 0
+A12 | A23 | SS | 4
+A23 | A24 | FS | 0
+A12 | A25 | SS | 6
+A25 | A26 | FS | 0
+A20 | A27 | FS | 0
+A27 | A28 | FS | 0
+A28 | A29 | FS | 0
+A28 | A31 | FS | 2
+A27 | A32 | SS | 8
+A29 | A30 | FS | 0
+A30 | A37 | FS | 0
+A22 | A36 | FS | 0
+A24 | A36 | FS | 0
+A26 | A36 | FS | 0
+A33 | A36 | FS | 0
+A31 | A39 | FS | 0
+A32 | A39 | FS | 0
+A36 | A39 | FS | 0
+A37 | A39 | FS | 0
+A16 | A34 | FS | 5
+A34 | A35 | FS | 0
+A35 | A39 | FS | 0
+A38 | A39 | FS | 0
+A39 | A40 | FS | 0
+A01 | A38 | SS | 0
+A02 | A03 | FS | 0
+
+@RESOURCES
+# id | name | max_units | cost_per_unit
+R01 | Design engineer          | 2 | 5000
+R02 | Surveyor                 | 1 | 4000
+R03 | Excavators (crew)        | 4 | 2000
+R04 | Rebar workers (crew)     | 3 | 2500
+R05 | Concrete workers (crew)  | 3 | 2500
+R06 | Erectors (crew)          | 4 | 3000
+R07 | Electricians (crew)      | 2 | 3500
+R08 | Plumbers (crew)          | 2 | 3000
+R09 | Finishers (crew)         | 5 | 2000
+R10 | Crane                    | 1 | 8000
+
+@ASSIGNMENTS
+# activity | resource | role | units | budget | actual_qty | rate_type | remaining_qty
+# --- Design and preparation ---
+# A01 uses BOTH engineers (max=2) — other tasks with R01 will cause overload
+A01 | R01 |  | 2 |  |  |  |
+A02 | R02 |  | 1 |  |  |  |
+A03 | R03 |  | 2 |  |  |  |
+# A04 and A05 run in parallel — both require engineer, total 2+2=4 > max=2 → OVERLOAD R01
+A04 | R01 |  | 2 |  |  |  |
+A05 | R01 |  | 2 |  |  |  |
+
+# --- Excavation and piles ---
+# A06 and A07 are sequential, but both take all excavators
+A06 | R03 |  | 4 |  |  |  |
+A06 | R10 |  | 1 |  |  |  |
+A07 | R03 |  | 3 |  |  |  |
+A07 | R10 |  | 1 |  |  |  |
+
+# --- Foundation ---
+# A08 and A09 partially overlap via links — both take rebar and concrete workers
+A08 | R04 |  | 3 |  |  |  |
+A08 | R10 |  | 1 |  |  |  |
+A09 | R05 |  | 3 |  |  |  |
+A09 | R10 |  | 1 |  |  |  |
+A10 | R05 |  | 2 |  |  |  |
+
+# --- Building frame — INTENTIONAL OVERLOAD of erectors and crane ---
+# A11, A12, A13 are sequential but each takes 4 erectors (max=4) — ok
+# A18 (façade SS+2 from A11) overlaps with A11/A12 — takes 3 erectors → 4+3=7 > 4 → OVERLOAD
+A11 | R06 |  | 4 |  |  |  |
+A11 | R10 |  | 1 |  |  |  |
+A12 | R06 |  | 4 |  |  |  |
+A12 | R10 |  | 1 |  |  |  |
+A13 | R06 |  | 4 |  |  |  |
+A13 | R10 |  | 1 |  |  |  |
+A14 | R06 |  | 4 |  |  |  |
+A14 | R10 |  | 1 |  |  |  |
+A15 | R06 |  | 4 |  |  |  |
+A15 | R10 |  | 1 |  |  |  |
+A16 | R06 |  | 4 |  |  |  |
+A16 | R10 |  | 1 |  |  |  |
+A17 | R06 |  | 3 |  |  |  |
+A17 | R10 |  | 1 |  |  |  |
+# Façade goes SS+2 from A11 — overlaps with frame erection → OVERLOAD R06 and R10
+A18 | R06 |  | 3 |  |  |  |
+A18 | R10 |  | 1 |  |  |  |
+
+# --- Windows and doors ---
+A19 | R06 |  | 2 |  |  |  |
+A20 | R06 |  | 2 |  |  |  |
+
+# --- Engineering systems (all SS from A12 — run in parallel with each other → OVERLOAD) ---
+# Electricians max=2, A21 takes 2 — ok, but A22 also takes 2 in parallel → 4 > 2 → OVERLOAD R07
+A21 | R07 |  | 2 |  |  |  |
+A22 | R07 |  | 2 |  |  |  |
+# Plumbers max=2, A23 and A24 with minor overlap → 2+2=4 > 2 → OVERLOAD R08
+A23 | R08 |  | 2 |  |  |  |
+A24 | R08 |  | 2 |  |  |  |
+A25 | R06 |  | 2 |  |  |  |
+A26 | R06 |  | 2 |  |  |  |
+
+# --- Finishing (all finishers) ---
+# A27, A28, A29, A30, A31, A32 partially parallel → total > 5 → OVERLOAD R09
+A27 | R09 |  | 4 |  |  |  |
+A28 | R09 |  | 3 |  |  |  |
+A29 | R09 |  | 3 |  |  |  |
+A30 | R09 |  | 4 |  |  |  |
+A31 | R09 |  | 3 |  |  |  |
+A32 | R09 |  | 3 |  |  |  |
+
+# --- Other ---
+A33 | R06 |  | 2 |  |  |  |
+A33 | R10 |  | 1 |  |  |  |
+A34 | R03 |  | 3 |  |  |  |
+A35 | R03 |  | 4 |  |  |  |
+A36 | R07 |  | 2 |  |  |  |
+A36 | R08 |  | 2 |  |  |  |
+A37 | R09 |  | 2 |  |  |  |
+A38 | R01 |  | 1 |  |  |  |
+A39 | R01 |  | 1 |  |  |  |
+
+@LEVELING
+level_within_float_only = false
+max_overload_pct        = 100
+priority_field          = total_float
