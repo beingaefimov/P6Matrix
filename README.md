@@ -29,7 +29,7 @@ Planning to later use WebGPU for schedule calculation and resource leveling, whi
 cd backend
 
 # Создать виртуальное окружение / Create virtual environment
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate   # Linux/macOS
 # или / or
 .venv\Scripts\activate  # Windows

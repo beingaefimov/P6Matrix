@@ -7,6 +7,11 @@ function ensureParts(parts: string[], minLen: number): string[] {
 }
 
 // ACTIVITIES
+// Индексы полей в строке @ACTIVITIES:
+// 0=id | 1=name | 2=duration | 3=type | 4=cal_id | 5=parent_id/wbs_id |
+// 6=constraint_es | 7=constraint_type | 8=actual_start | 9=actual_finish |
+// 10=pct_complete | 11=priority | 12=notes | 13=actual_duration | 14=remaining_duration
+
 export function getActivityField(pxp: string, actId: string, fieldIdx: number): string {
   const lines = pxp.split('\n')
   let inSection = false
@@ -108,7 +113,9 @@ export function getAllActivitiesExtra(pxp: string): Map<string, {
   return result
 }
 
-// ID выполненных работ - для UI-отображения (приглушённые бары, галочка)
+// Определение завершённых и начатых работ по PXP-тексту
+
+// Работы, отображаемые как завершённые в UI (приглушённые, галочка)
 export function parseCompletedIds(pxp: string): Set<string> {
   const ids = new Set<string>()
   const lines = pxp.split('\n')
@@ -121,9 +128,9 @@ export function parseCompletedIds(pxp: string): Set<string> {
     const parts = trimmed.split('|').map(s => s.trim())
     if (!parts[0]) continue
     const pct = parts.length > 10 ? parts[10] : ''
-    const af = parts.length > 9 ? parts[9] : ''
-    const ad = parts.length > 13 ? parts[13] : ''
-    const rd = parts.length > 14 ? parts[14] : ''
+    const af  = parts.length > 9  ? parts[9]  : ''
+    const ad  = parts.length > 13 ? parts[13] : ''
+    const rd  = parts.length > 14 ? parts[14] : ''
     const done =
       (pct !== '' && parseFloat(pct) >= 100) ||
       af !== '' ||
@@ -133,8 +140,10 @@ export function parseCompletedIds(pxp: string): Set<string> {
   return ids
 }
 
-// ID работ, которые не могут сдвигаться при выравнивании:
-// завершённые или начатые (есть actual_start)
+/** Работы, заблокированные от сдвига при выравнивании:
+ * завершённые ИЛИ начатые (есть actual_start).
+ * Бэкенд тоже проверяет это, но дублируем на фронте,
+ * чтобы не давать перетаскивать такие работы */
 export function parseLockedIds(pxp: string): Set<string> {
   const ids = new Set<string>()
   const lines = pxp.split('\n')
@@ -147,24 +156,23 @@ export function parseLockedIds(pxp: string): Set<string> {
     const parts = trimmed.split('|').map(s => s.trim())
     if (!parts[0]) continue
     const pct = parts.length > 10 ? parts[10] : ''
-    const as = parts.length > 8 ? parts[8] : '' // actual_start
-    const af = parts.length > 9 ? parts[9] : '' // actual_finish
-    const ad = parts.length > 13 ? parts[13] : '' // actual_duration
-    const rd = parts.length > 14 ? parts[14] : '' // remaining_duration
+    const as_ = parts.length > 8  ? parts[8]  : ''  // actual_start
+    const af  = parts.length > 9  ? parts[9]  : ''  // actual_finish
+    const ad  = parts.length > 13 ? parts[13] : ''
+    const rd  = parts.length > 14 ? parts[14] : ''
     const completed =
       (pct !== '' && parseFloat(pct) >= 100) ||
       af !== '' ||
       (ad !== '' && parseFloat(ad) > 0 && (rd === '' || parseFloat(rd) === 0))
-    const started = as !== ''
+    const started = as_ !== ''
     if (completed || started) ids.add(parts[0])
   }
   return ids
 }
 
-// Блокировка выполненных и начатых работ перед пересчётом/выравниванием.
-// Ставит ограничение (constraint) на текущий ES, чтобы работа не могла
-// сдвинуться назад. Если уже есть constraint — берём максимум из
-// существующего и текущего ES
+/** Блокировка начатых/завершённых работ перед пересчётом.
+ * Ставит constraint_es на текущий ES, чтобы работа не уходила левее.
+ * Если constraint уже строже - не трогаем */
 export function lockCompletedActivities(
   pxp: string,
   activities: { id: string; es_date: string }[],
@@ -185,16 +193,32 @@ export function lockCompletedActivities(
     const existing = getActivityField(modified, actId, 6)
     if (existing) {
       const existingDays = parseInt(existing)
-      // Если существующий constraint уже не слабее текущего ES — не трогаем
       if (!isNaN(existingDays) && existingDays >= esDays) continue
     }
-    // Иначе ставим constraint на текущий ES (или более строгий)
     modified = setActivityConstraint(modified, actId, esDays)
   }
   return modified
 }
 
 // ASSIGNMENTS
+// Индексы полей в строке @ASSIGNMENTS:
+// 0=activity | 1=resource | 2=role | 3=units | 4=budget |
+// 5=actual_qty | 6=rate_type | 7=remaining_qty
+// Старый формат (без role/budget): 0=activity | 1=resource | 2=units
+// Для совместимости определяем формат динамически
+
+function detectAssignmentFormat(parts: string[]): 'new' | 'old' {
+  // Если 3+ частей и parts[2] выглядит как число - старый формат (act|res|units)
+  // Если parts[2] - строка (role id) или пустая - новый формат
+  if (parts.length <= 3) return 'old'
+  const third = parts[2]
+  // Если третье поле - число, скорее всего старый формат
+  if (third === '' || isNaN(parseFloat(third))) return 'new'
+  // Если четвёртое поле тоже число - новый (act|res|role|units)
+  if (parts.length > 3 && parts[3] !== '' && !isNaN(parseFloat(parts[3]))) return 'new'
+  return 'old'
+}
+
 export function getAssignmentsForActivity(
   pxp: string, actId: string, resources: { id: string; name: string }[]
 ): AssignmentOut[] {
@@ -202,52 +226,109 @@ export function getAssignmentsForActivity(
   let inSection = false
   const resMap = new Map(resources.map(r => [r.id, r.name]))
   const result: AssignmentOut[] = []
+
   for (const line of lines) {
     const trimmed = line.trim()
     if (trimmed === '@ASSIGNMENTS') { inSection = true; continue }
     if (inSection && trimmed.startsWith('@')) break
     if (!inSection || trimmed.startsWith('#') || !trimmed) continue
     const parts = trimmed.split('|').map(s => s.trim())
-    if (parts[0] === actId && parts[1]) {
-      const p = ensureParts(parts, 8)
-      result.push({
-        resource_id: p[1], resource_name: resMap.get(p[1]) || p[1],
-        planned_units: parseFloat(p[3]) || 0,
-        actual_qty: p[5] ? parseFloat(p[5]) || null : null,
-        remaining_qty: p[7] ? parseFloat(p[7]) || null : null,
-      })
+    if (parts[0] !== actId || !parts[1]) continue
+
+    const fmt = detectAssignmentFormat(parts)
+    let units: number
+    let actual_qty: number | null = null
+    let remaining_qty: number | null = null
+
+    if (fmt === 'new') {
+      // 0=act | 1=res | 2=role | 3=units | 4=budget | 5=actual_qty | 6=rate_type | 7=remaining_qty
+      units = parseFloat(parts[3] || '0') || 0
+      if (parts.length > 5 && parts[5]) actual_qty = parseFloat(parts[5]) || null
+      if (parts.length > 7 && parts[7]) remaining_qty = parseFloat(parts[7]) || null
+    } else {
+      // 0=act | 1=res | 2=units  (старый компактный формат)
+      units = parseFloat(parts[2] || '0') || 0
     }
+
+    result.push({
+      resource_id: parts[1],
+      resource_name: resMap.get(parts[1]) || parts[1],
+      planned_units: units,
+      actual_qty,
+      remaining_qty,
+    })
   }
   return result
 }
 
-export function setAssignmentField(pxp: string, actId: string, resId: string, fieldIdx: number, value: string): string {
-  const lines = pxp.split('\n'); let inSection = false
+export function setAssignmentField(
+  pxp: string, actId: string, resId: string, fieldIdx: number, value: string
+): string {
+  const lines = pxp.split('\n')
+  let inSection = false
   return lines.map(line => {
     const trimmed = line.trim()
     if (trimmed === '@ASSIGNMENTS') { inSection = true; return line }
     if (inSection && trimmed.startsWith('@')) { inSection = false; return line }
     if (!inSection || trimmed.startsWith('#') || !trimmed) return line
     const parts = trimmed.split('|').map(s => s.trim())
-    if (parts[0] === actId && parts[1] === resId) { const p = ensureParts(parts, fieldIdx + 1); p[fieldIdx] = value; return p.join(' | ') }
+    if (parts[0] === actId && parts[1] === resId) {
+      const p = ensureParts(parts, fieldIdx + 1)
+      p[fieldIdx] = value
+      return p.join(' | ')
+    }
     return line
   }).join('\n')
 }
 
-export function setAssignmentUnits(pxp: string, actId: string, resId: string, units: number): string { return setAssignmentField(pxp, actId, resId, 3, String(units)) }
-export function setAssignmentActual(pxp: string, actId: string, resId: string, value: number | null): string { return setAssignmentField(pxp, actId, resId, 5, value !== null ? String(value) : '') }
-export function setAssignmentRemaining(pxp: string, actId: string, resId: string, value: number | null): string { return setAssignmentField(pxp, actId, resId, 7, value !== null ? String(value) : '') }
+// units - поле 3 в новом формате, поле 2 в старом.
+// Определяем по структуре строки
+export function setAssignmentUnits(pxp: string, actId: string, resId: string, units: number): string {
+  const lines = pxp.split('\n')
+  let inSection = false
+  let fieldIdx = 3
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (trimmed === '@ASSIGNMENTS') { inSection = true; continue }
+    if (inSection && trimmed.startsWith('@')) break
+    if (!inSection || trimmed.startsWith('#') || !trimmed) continue
+    const parts = trimmed.split('|').map(s => s.trim())
+    if (parts[0] === actId && parts[1] === resId) {
+      fieldIdx = detectAssignmentFormat(parts) === 'new' ? 3 : 2
+      break
+    }
+  }
+  return setAssignmentField(pxp, actId, resId, fieldIdx, String(units))
+}
+
+export function setAssignmentActual(pxp: string, actId: string, resId: string, value: number | null): string {
+  return setAssignmentField(pxp, actId, resId, 5, value !== null ? String(value) : '')
+}
+
+export function setAssignmentRemaining(pxp: string, actId: string, resId: string, value: number | null): string {
+  return setAssignmentField(pxp, actId, resId, 7, value !== null ? String(value) : '')
+}
 
 export function addAssignment(pxp: string, actId: string, resId: string, units: number): string {
-  const lines = pxp.split('\n'); const newLine = `  ${actId} | ${resId} |  | ${units} |  |  |  | `
-  const result: string[] = []; let inserted = false
-  for (const line of lines) { result.push(line); if (line.trim() === '@ASSIGNMENTS' && !inserted) { inserted = true; result.push(newLine) } }
+  const lines = pxp.split('\n')
+  // Новый формат: act | res | role | units | budget | actual_qty | rate_type | remaining_qty
+  const newLine = `  ${actId} | ${resId} |  | ${units} |  |  |  | `
+  const result: string[] = []
+  let inserted = false
+  for (const line of lines) {
+    result.push(line)
+    if (line.trim() === '@ASSIGNMENTS' && !inserted) {
+      inserted = true
+      result.push(newLine)
+    }
+  }
   if (!inserted) { result.push('@ASSIGNMENTS'); result.push(newLine) }
   return result.join('\n')
 }
 
 export function removeAssignment(pxp: string, actId: string, resId: string): string {
-  const lines = pxp.split('\n'); let inSection = false
+  const lines = pxp.split('\n')
+  let inSection = false
   return lines.filter(line => {
     const trimmed = line.trim()
     if (trimmed === '@ASSIGNMENTS') { inSection = true; return true }
@@ -259,34 +340,59 @@ export function removeAssignment(pxp: string, actId: string, resId: string): str
 }
 
 // RELATIONS
+
 export function getAllRelations(pxp: string): RelationOut[] {
-  const lines = pxp.split('\n'); let inSection = false; const result: RelationOut[] = []
+  const lines = pxp.split('\n')
+  let inSection = false
+  const result: RelationOut[] = []
   for (const line of lines) {
     const trimmed = line.trim()
     if (trimmed === '@RELATIONS') { inSection = true; continue }
     if (inSection && trimmed.startsWith('@')) break
     if (!inSection || trimmed.startsWith('#') || !trimmed) continue
     const parts = trimmed.split('|').map(s => s.trim())
-    if (parts.length >= 2 && parts[0] && parts[1]) result.push({ pred: parts[0], succ: parts[1], type: (parts[2] || 'FS').trim(), lag: parseFloat(parts[3]) || 0 })
+    if (parts.length >= 2 && parts[0] && parts[1]) {
+      result.push({
+        pred: parts[0], succ: parts[1],
+        type: (parts[2] || 'FS').trim(),
+        lag: parseFloat(parts[3]) || 0,
+      })
+    }
   }
   return result
 }
 
-export function getRelationsForActivity(pxp: string, actId: string): { asPred: RelationOut[]; asSucc: RelationOut[] } {
+export function getRelationsForActivity(
+  pxp: string, actId: string
+): { asPred: RelationOut[]; asSucc: RelationOut[] } {
   const all = getAllRelations(pxp)
-  return { asPred: all.filter(r => r.pred === actId), asSucc: all.filter(r => r.succ === actId) }
+  return {
+    asPred: all.filter(r => r.pred === actId),
+    asSucc: all.filter(r => r.succ === actId),
+  }
 }
 
-export function addRelation(pxp: string, predId: string, succId: string, type: string, lag: number): string {
-  const lines = pxp.split('\n'); const newLine = `  ${predId} | ${succId} | ${type} | ${lag} |  | `
-  const result: string[] = []; let inserted = false
-  for (const line of lines) { result.push(line); if (line.trim() === '@RELATIONS' && !inserted) { inserted = true; result.push(newLine) } }
+export function addRelation(
+  pxp: string, predId: string, succId: string, type: string, lag: number
+): string {
+  const lines = pxp.split('\n')
+  const newLine = `  ${predId} | ${succId} | ${type} | ${lag}`
+  const result: string[] = []
+  let inserted = false
+  for (const line of lines) {
+    result.push(line)
+    if (line.trim() === '@RELATIONS' && !inserted) {
+      inserted = true
+      result.push(newLine)
+    }
+  }
   if (!inserted) { result.push('@RELATIONS'); result.push(newLine) }
   return result.join('\n')
 }
 
 export function removeRelation(pxp: string, predId: string, succId: string): string {
-  const lines = pxp.split('\n'); let inSection = false
+  const lines = pxp.split('\n')
+  let inSection = false
   return lines.filter(line => {
     const trimmed = line.trim()
     if (trimmed === '@RELATIONS') { inSection = true; return true }
@@ -297,28 +403,38 @@ export function removeRelation(pxp: string, predId: string, succId: string): str
   }).join('\n')
 }
 
-export function updateRelationType(pxp: string, predId: string, succId: string, newType: string): string {
-  const lines = pxp.split('\n'); let inSection = false
+export function updateRelationType(
+  pxp: string, predId: string, succId: string, newType: string
+): string {
+  const lines = pxp.split('\n')
+  let inSection = false
   return lines.map(line => {
     const trimmed = line.trim()
     if (trimmed === '@RELATIONS') { inSection = true; return line }
     if (inSection && trimmed.startsWith('@')) { inSection = false; return line }
     if (!inSection || trimmed.startsWith('#') || !trimmed) return line
     const parts = trimmed.split('|').map(s => s.trim())
-    if (parts[0] === predId && parts[1] === succId) { const p = ensureParts(parts, 4); p[2] = newType; return p.join(' | ') }
+    if (parts[0] === predId && parts[1] === succId) {
+      const p = ensureParts(parts, 4); p[2] = newType; return p.join(' | ')
+    }
     return line
   }).join('\n')
 }
 
-export function updateRelationLag(pxp: string, predId: string, succId: string, newLag: number): string {
-  const lines = pxp.split('\n'); let inSection = false
+export function updateRelationLag(
+  pxp: string, predId: string, succId: string, newLag: number
+): string {
+  const lines = pxp.split('\n')
+  let inSection = false
   return lines.map(line => {
     const trimmed = line.trim()
     if (trimmed === '@RELATIONS') { inSection = true; return line }
     if (inSection && trimmed.startsWith('@')) { inSection = false; return line }
     if (!inSection || trimmed.startsWith('#') || !trimmed) return line
     const parts = trimmed.split('|').map(s => s.trim())
-    if (parts[0] === predId && parts[1] === succId) { const p = ensureParts(parts, 4); p[3] = String(newLag); return p.join(' | ') }
+    if (parts[0] === predId && parts[1] === succId) {
+      const p = ensureParts(parts, 4); p[3] = String(newLag); return p.join(' | ')
+    }
     return line
   }).join('\n')
 }

@@ -18,6 +18,8 @@ interface Props {
   onToggleConnections?: () => void
   hardStarts?: Set<string>
   completedIds?: Set<string>
+  // Начатые и завершённые - нельзя перетаскивать
+  lockedIds?: Set<string>
 }
 
 const BAR_H = 28
@@ -81,7 +83,7 @@ function clsx(...args: (string | boolean | undefined | null)[]) { return args.fi
 export default function GanttChart({
   activities, startDate, totalDays, onActivityMove, onDropRelation,
   onSelectActivity, selectedActivityId, wbs, pxpText,
-  showConnections = true, onToggleConnections, hardStarts, completedIds,
+  showConnections = true, onToggleConnections, hardStarts, completedIds, lockedIds,
 }: Props) {
   if (wbs) {}
   const baseScale = useMemo(() => Math.max(MIN_CHART_W, totalDays * 14) / Math.max(totalDays, 1), [totalDays])
@@ -96,8 +98,7 @@ export default function GanttChart({
   useEffect(() => { setExpanded(prev => { const next = new Set(prev); activities.forEach(a => next.add(a.id)); return next }) }, [activities])
 
   const [drag, setDragState] = useState<{
-    id: string; startX: number; currentX: number; origEs: number
-    hasMoved: boolean
+    id: string; startX: number; currentX: number; origEs: number; hasMoved: boolean
   } | null>(null)
   const dropTargetRef = useRef<string | null>(null)
 
@@ -166,9 +167,7 @@ export default function GanttChart({
           const ri = rowAtPoint(e.clientX, e.clientY)
           if (ri !== null) {
             const targetAct = visible[ri]
-            if (targetAct && targetAct.id !== prev.id) {
-              target = targetAct.id
-            }
+            if (targetAct && targetAct.id !== prev.id) target = targetAct.id
           }
         }
         dropTargetRef.current = target
@@ -193,7 +192,7 @@ export default function GanttChart({
     }
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-  }, [drag, scale, onActivityMove, onDropRelation, rowAtPoint, startDate, labelW])
+  }, [drag, scale, onActivityMove, onDropRelation, rowAtPoint])
 
   useEffect(() => {
     if (!zoom) return
@@ -296,6 +295,7 @@ export default function GanttChart({
             </div>
           </div>
         </div>
+
         {arrowPaths.length > 0 && (
           <div style={{ position: 'absolute', left: labelW, top: HEADER_H, width: chartW, height: visible.length * ROW_H, overflow: 'hidden', pointerEvents: 'none', zIndex: 1 }}>
             <svg width={chartW} height={visible.length * ROW_H}>
@@ -307,6 +307,7 @@ export default function GanttChart({
             </svg>
           </div>
         )}
+
         {dragInfo && (
           <div className="fixed top-20 right-6 z-50 bg-steel-900 border border-amber-500/40 rounded-lg px-3 py-2 shadow-xl text-xs font-mono">
             <div className="text-amber-400 font-semibold mb-0.5">
@@ -323,17 +324,22 @@ export default function GanttChart({
             )}
           </div>
         )}
+
         {tooltip && (
           <div className="fixed z-50 pointer-events-none bg-steel-800 border border-steel-600 text-steel-100 text-xs font-sans px-2.5 py-1.5 rounded shadow-lg max-w-sm whitespace-normal"
             style={{ left: tooltip.x + 12, top: tooltip.y - 8 }}>{tooltip.text}</div>
         )}
+
         <div>
           {visible.map((act, rowIdx) => {
             const es = dateOffset(startDate, act.es_date)
             const ef = dateOffset(startDate, act.ef_date)
             const lf = dateOffset(startDate, act.lf_date)
             let displayEs = es, displayEf = ef, isDragging = false
-            if (dragWithTarget && dragWithTarget.id === act.id && dragWithTarget.hasMoved) { const dayShift = (dragWithTarget.currentX - dragWithTarget.startX) / scale; displayEs = es + dayShift; displayEf = ef + dayShift; isDragging = true }
+            if (dragWithTarget && dragWithTarget.id === act.id && dragWithTarget.hasMoved) {
+              const dayShift = (dragWithTarget.currentX - dragWithTarget.startX) / scale
+              displayEs = es + dayShift; displayEf = ef + dayShift; isDragging = true
+            }
             const barW = Math.max(2, (displayEf - displayEs) * scale)
             const floatW = Math.max(0, (lf - ef) * scale)
             const isMilestone = act.duration === 0
@@ -341,6 +347,8 @@ export default function GanttChart({
             const isSelected = selectedActivityId === act.id
             const isHardStart = hardStarts?.has(act.id) ?? false
             const completed = completedIds?.has(act.id) ?? false
+            // Заблокировано = нельзя двигать (начата или завершена)
+            const isLocked = lockedIds?.has(act.id) ?? false
             const isDropTarget = dragWithTarget?.dropTargetId === act.id && dragWithTarget.id !== act.id
             const rowBg = rowIdx % 2 === 0 ? bgEven : bgOdd
             const selectedBg = '#131f2e'
@@ -349,7 +357,8 @@ export default function GanttChart({
             const hasRemain = extras?.remainingDuration != null && extras.remainingDuration > 0
             const showExtra = hasActual || hasRemain
             const extraText = showExtra ? `(${extras!.actualDuration ?? '?'}+${extras!.remainingDuration ?? '?'})` : ''
-            const actualLineX = hasActual && !isMilestone && act.duration > 0 ? Math.min(barW, (extras!.actualDuration! / act.duration) * barW) : null
+            const actualLineX = hasActual && !isMilestone && act.duration > 0
+              ? Math.min(barW, (extras!.actualDuration! / act.duration) * barW) : null
 
             let barFill: string; let barOpacity: number; let textOpacity: number
             if (completed) { barFill = act.on_critical ? 'url(#critGradMuted)' : 'url(#normalGradMuted)'; barOpacity = 0.85; textOpacity = 0.55 }
@@ -358,8 +367,20 @@ export default function GanttChart({
             let barStroke: string; let barStrokeWidth: number
             if (isDropTarget) { barStroke = '#34d399'; barStrokeWidth = 2.5 }
             else if (isDragging) { barStroke = 'rgba(255,255,255,0.6)'; barStrokeWidth = 1 }
+            else if (isLocked && !completed) { barStroke = '#60a5fa'; barStrokeWidth = 1.5 }   // синяя рамка = начата
             else if (isHardStart) { barStroke = '#fbbf24'; barStrokeWidth = 2 }
             else { barStroke = 'none'; barStrokeWidth = 0 }
+
+            // Курсор для заблокированных работ
+            const barCursor = isLocked ? 'not-allowed' : (dragWithTarget?.id === act.id ? 'grabbing' : 'grab')
+
+            const handleBarMouseDown = (e: React.MouseEvent) => {
+              // Начатые и завершённые работы нельзя перетаскивать
+              if (isLocked) return
+              e.stopPropagation()
+              setDragState({ id: act.id, startX: e.clientX, currentX: e.clientX, origEs: es, hasMoved: false })
+              dropTargetRef.current = null
+            }
 
             return (
               <div key={act.id} className="relative flex items-center border-b border-steel-800 transition-colors"
@@ -392,8 +413,8 @@ export default function GanttChart({
                   <svg width={chartW} height={ROW_H}>
                     {ticks.map((tk, i) => <line key={i} x1={tk.offset * scale} y1={0} x2={tk.offset * scale} y2={ROW_H} stroke="#1a3347" strokeWidth={1} />)}
                     {isMilestone ? (
-                      <g style={{ cursor: dragWithTarget?.id === act.id ? 'grabbing' : 'grab' }}
-                        onMouseDown={e => { e.stopPropagation(); setDragState({ id: act.id, startX: e.clientX, currentX: e.clientX, origEs: es, hasMoved: false }); dropTargetRef.current = null }}
+                      <g style={{ cursor: barCursor }}
+                        onMouseDown={handleBarMouseDown}
                         onMouseEnter={e => setTooltip({ text: act.name, x: e.clientX, y: e.clientY })}
                         onMouseMove={e => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
                         onMouseLeave={() => setTooltip(null)}>
@@ -402,8 +423,8 @@ export default function GanttChart({
                           fill={completed ? '#6b5060' : act.on_critical ? '#f43f5e' : '#fbbf24'} opacity={isDragging ? 0.7 : 1} stroke={isDragging ? '#fff' : 'none'} strokeWidth={1} />
                       </g>
                     ) : (
-                      <g style={{ cursor: dragWithTarget?.id === act.id ? 'grabbing' : 'grab' }}
-                        onMouseDown={e => { e.stopPropagation(); setDragState({ id: act.id, startX: e.clientX, currentX: e.clientX, origEs: es, hasMoved: false }); dropTargetRef.current = null }}
+                      <g style={{ cursor: barCursor }}
+                        onMouseDown={handleBarMouseDown}
                         onMouseEnter={e => setTooltip({ text: act.name, x: e.clientX, y: e.clientY })}
                         onMouseMove={e => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
                         onMouseLeave={() => setTooltip(null)}>

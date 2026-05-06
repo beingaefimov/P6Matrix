@@ -1,3 +1,9 @@
+/** ActivityDisplay - основной тип задачи, приходит из useScheduler
+ * (содержит результаты CPM: es_date, ef_date, tf, ff, on_critical и т.д).
+ * Для обратной совместимости с компонентами экспортируем ActivityOut = ActivityDisplay */
+
+export type { ActivityDisplay as ActivityOut } from '../engine/useScheduler'
+
 export interface WBSNode {
   id: string
   name: string
@@ -20,34 +26,6 @@ export interface RelationOut {
   lag: number
 }
 
-export interface ActivityOut {
-  id: string
-  name: string
-  duration: number
-  es_date: string
-  ef_date: string
-  ls_date: string
-  lf_date: string
-  tf: number
-  ff: number
-  on_critical: boolean
-  parent_id?: string | null
-  constraint_es?: number | null
-  wbs_id?: string | null
-  activity_type?: string
-  duration_type?: string
-  constraint_type?: string
-  constraint_date?: string | null
-  actual_start?: string | null
-  actual_finish?: string | null
-  percent_complete?: number
-  priority?: number
-  notes?: string
-  udf_values?: Record<string, string | number | null>
-  actual_duration?: number | null
-  remaining_duration?: number | null
-}
-
 export interface ResourceOut {
   id: string
   name: string
@@ -55,21 +33,18 @@ export interface ResourceOut {
   cost_per_unit?: number
 }
 
+// ProjectData и ScheduleResult больше не используются напрямую -
+// состояние проекта живёт в useScheduler.ProjectState
+// Оставляем для совместимости если где-то ещё есть импорт
 export interface ProjectData {
   project_id: string
   project_name: string
   start_date: string
   finish_date?: string
   duration_days: number
-  activities: ActivityOut[]
+  activities: import('../engine/useScheduler').ActivityDisplay[]
   resources: ResourceOut[]
   resource_load: Record<string, number[]>
   wbs: WBSNode[]
   pxp_text: string
-}
-
-export interface ScheduleResult {
-  projects: ProjectData[]
-  active_project_idx: number
-  warnings: string[]
 }
