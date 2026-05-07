@@ -1,10 +1,9 @@
-/** CPM + Resource Leveling на WebGPU
- * Архитектура:
+/** Архитектура:
  *  - Связи хранятся в CSR (Compressed Sparse Row): O(E) памяти, E ≈ 2-5 рёбер на задачу
  *  - Forward/backward pass реализованы как итеративные WebGPU compute shaders
  *  - Каждый шейдер обрабатывает все N задач параллельно за один dispatch
  *  - Итерации повторяются пока есть изменения (atomics через staging buffer)
- *  - Resource leveling - serial scheduling, тоже на GPU где возможно
+ *  - Resource leveling - serial scheduling, тоже на GPU где возможно.
  * Fallback на CPU (JS) если WebGPU недоступен */
 
 declare global {
@@ -30,6 +29,7 @@ export interface ActivityMin {
   pct_complete: number
   actual_duration: number | null
   remaining_duration: number | null
+  // для отображения
   name: string
   parent_id: string | null
   act_type: string
@@ -38,7 +38,7 @@ export interface ActivityMin {
 export interface Relation {
   pred: string
   succ: string
-  type: string  // 'FS' | 'SS' | 'FF' | 'SF'
+  type: string   // 'FS' | 'SS' | 'FF' | 'SF'
   lag: number
 }
 
@@ -58,17 +58,17 @@ export interface Assignment {
 }
 
 export interface ScheduleResult {
-  es: Float64Array  // Early Start в днях от project start
-  ef: Float64Array  // Early Finish
-  ls: Float64Array  // Late Start
-  lf: Float64Array  // Late Finish
-  tf: Float64Array  // Total Float
-  ff: Float64Array  // Free Float
+  es: Float64Array // Early Start в днях от project start
+  ef: Float64Array // Early Finish
+  ls: Float64Array // Late Start
+  lf: Float64Array // Late Finish
+  tf: Float64Array // Total Float
+  ff: Float64Array // Free Float
   on_critical: Uint8Array
 }
 
 export interface CSR {
-  /** row_ptr[i]..row_ptr[i+1] - диапазон рёбер из вершины i */
+  // row_ptr[i]..row_ptr[i+1] - диапазон рёбер из вершины i
   row_ptr: Int32Array
   col: Int32Array
   lag: Float64Array
@@ -81,6 +81,7 @@ export function buildCSR(N: number, relations: Relation[], idxMap: Map<string, n
 } {
   const fwdAdj: Array<Array<{ j: number; lag: number; type: number }>> = Array.from({ length: N }, () => [])
   const revAdj: Array<Array<{ j: number; lag: number; type: number }>> = Array.from({ length: N }, () => [])
+
   for (const r of relations) {
     const i = idxMap.get(r.pred)!
     const j = idxMap.get(r.succ)!
@@ -88,6 +89,7 @@ export function buildCSR(N: number, relations: Relation[], idxMap: Map<string, n
     fwdAdj[i].push({ j, lag: r.lag, type })
     revAdj[j].push({ j: i, lag: r.lag, type })
   }
+
   return { fwd: _buildCSRFromAdj(N, fwdAdj), rev: _buildCSRFromAdj(N, revAdj) }
 }
 
@@ -135,7 +137,7 @@ fn forward_step(@builtin(global_invocation_id) gid: vec3<u32>) {
 
   let start = fwd_ptr[j];
   let end   = fwd_ptr[j + 1u];
-  // rev pass: fwd_ptr здесь на самом деле rev CSR (successors-predecessors)
+  // rev pass: fwd_ptr здесь на самом деле rev CSR (successors - predecessors)
   for (var k = start; k < end; k++) {
     let i   = fwd_col[k];
     let lg  = fwd_lag[k];
@@ -204,6 +206,7 @@ fn backward_step(@builtin(global_invocation_id) gid: vec3<u32>) {
 export class CPMEngineGPU {
   private device: GPUDevice | null = null
   private ready = false
+
   async init(): Promise<boolean> {
     if (!navigator.gpu) return false
     try {
@@ -228,6 +231,7 @@ export class CPMEngineGPU {
   ): Promise<ScheduleResult> {
     const N = activities.length
     if (N === 0) return _emptyResult(0)
+
     if (this.ready && this.device) {
       try {
         return await this._scheduleGPU(activities, relations)
@@ -237,6 +241,7 @@ export class CPMEngineGPU {
     }
     return _scheduleCPU(activities, relations)
   }
+
   private async _scheduleGPU(
     activities: ActivityMin[],
     relations: Relation[],
@@ -245,26 +250,35 @@ export class CPMEngineGPU {
     const N = activities.length
     const idxMap = new Map(activities.map((a, i) => [a.id, i]))
     const { fwd, rev } = buildCSR(N, relations, idxMap)
+
     const D = new Float32Array(activities.map(a => a.duration))
     const constraintES = new Float32Array(N).fill(-1)
     activities.forEach((a, i) => { if (a.constraint_es != null) constraintES[i] = a.constraint_es })
+
     // ES forward pass
     const ES_fixed = new Int32Array(N) // все 0
     const esGPU = await _gpuIterativePass(device, WGSL_FORWARD, 'forward_step', N, rev, D, constraintES, ES_fixed, N * 3 + 10)
+
     const ES = new Float64Array(N)
     for (let i = 0; i < N; i++) ES[i] = esGPU[i] / 1000.0
+
     const EF = new Float64Array(N)
     for (let i = 0; i < N; i++) EF[i] = ES[i] + activities[i].duration
+
+    // Project finish
     let projFinish = 0
     for (let i = 0; i < N; i++) if (EF[i] > projFinish) projFinish = EF[i]
+
     // LF backward pass (stored as -LF, inverted for atomicMax)
     const LF_init = new Int32Array(N).fill(Math.round(-projFinish * 1000))
     const LF_neg = await _gpuIterativePass(device, WGSL_BACKWARD, 'backward_step', N, fwd, D, new Float32Array([projFinish]), LF_init, N * 3 + 10)
+
     const LF = new Float64Array(N)
     const LS = new Float64Array(N)
     const TF = new Float64Array(N)
     const FF = new Float64Array(N)
     const on_critical = new Uint8Array(N)
+
     for (let i = 0; i < N; i++) {
       LF[i] = -LF_neg[i] / 1000.0
       LS[i] = LF[i] - activities[i].duration
@@ -272,8 +286,10 @@ export class CPMEngineGPU {
       if (Math.abs(TF[i]) < 1e-6) TF[i] = 0
       on_critical[i] = Math.abs(TF[i]) < 1e-6 ? 1 : 0
     }
+
     // Free Float (CPU - небольшой проход, не узкое место)
-    _calcFreeFloat(N, activities, relations, idxMap, fwd, ES, EF, TF, FF)
+    _calcFreeFloat(N, relations, idxMap, fwd, ES, EF, TF, FF)
+
     return { es: ES, ef: EF, ls: LS, lf: LF, tf: TF, ff: FF, on_critical }
   }
 }
@@ -285,7 +301,7 @@ async function _gpuIterativePass(
   N: number,
   csr: CSR,
   D: Float32Array,
-  extra: Float32Array,  // constraint_es (forward) или [projFinish] (backward)
+  extra: Float32Array,   // constraint_es (forward) или [projFinish] (backward)
   initValues: Int32Array,
   maxIter: number,
 ): Promise<Int32Array> {
@@ -485,14 +501,13 @@ export function _scheduleCPU(activities: ActivityMin[], relations: Relation[]): 
     on_critical[i] = Math.abs(TF[i]) < 1e-6 ? 1 : 0
   }
 
-  _calcFreeFloat(N, activities, relations, idxMap, fwd, ES, EF, TF, FF)
+  _calcFreeFloat(N, relations, idxMap, fwd, ES, EF, TF, FF)
 
   return { es: ES, ef: EF, ls: LS, lf: LF, tf: TF, ff: FF, on_critical }
 }
 
 function _calcFreeFloat(
   N: number,
-  activities: ActivityMin[],
   _relations: Relation[],
   _idxMap: Map<string, number>,
   fwd: CSR,
@@ -599,8 +614,12 @@ export function levelResources(
       if (cand > earliest) earliest = cand
     }
 
+    // Верхняя граница для поиска слота:
+    // - level_within_float_only: не позже LS (иначе проект удлинится)
+    // - иначе: ищем до конца горизонта
+    // Но upper не может быть меньше earliest (логическая зависимость обязательна)
     const upper = options.level_within_float_only
-      ? schedResult.ls[i]
+      ? Math.max(schedResult.ls[i], earliest)  // не меньше earliest
       : maxDays - Math.ceil(dur)
     const upperClamped = Math.min(upper, maxDays - Math.ceil(dur))
 
@@ -608,7 +627,7 @@ export function levelResources(
     let placed = false
     const rm = actRes.get(i)!
 
-    while (start <= Math.floor(upperClamped) + 1) {
+    while (start <= Math.ceil(upperClamped)) {
       const endIdx = Math.min(start + Math.ceil(dur), maxDays)
       let ok = true
       for (const [rid, units] of rm) {

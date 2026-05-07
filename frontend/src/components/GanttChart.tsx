@@ -18,7 +18,7 @@ interface Props {
   onToggleConnections?: () => void
   hardStarts?: Set<string>
   completedIds?: Set<string>
-  // Начатые и завершённые - нельзя перетаскивать
+  // Начатые + завершённые - нельзя перетаскивать
   lockedIds?: Set<string>
 }
 
@@ -295,7 +295,6 @@ export default function GanttChart({
             </div>
           </div>
         </div>
-
         {arrowPaths.length > 0 && (
           <div style={{ position: 'absolute', left: labelW, top: HEADER_H, width: chartW, height: visible.length * ROW_H, overflow: 'hidden', pointerEvents: 'none', zIndex: 1 }}>
             <svg width={chartW} height={visible.length * ROW_H}>
@@ -307,7 +306,6 @@ export default function GanttChart({
             </svg>
           </div>
         )}
-
         {dragInfo && (
           <div className="fixed top-20 right-6 z-50 bg-steel-900 border border-amber-500/40 rounded-lg px-3 py-2 shadow-xl text-xs font-mono">
             <div className="text-amber-400 font-semibold mb-0.5">
@@ -324,12 +322,10 @@ export default function GanttChart({
             )}
           </div>
         )}
-
         {tooltip && (
           <div className="fixed z-50 pointer-events-none bg-steel-800 border border-steel-600 text-steel-100 text-xs font-sans px-2.5 py-1.5 rounded shadow-lg max-w-sm whitespace-normal"
             style={{ left: tooltip.x + 12, top: tooltip.y - 8 }}>{tooltip.text}</div>
         )}
-
         <div>
           {visible.map((act, rowIdx) => {
             const es = dateOffset(startDate, act.es_date)
@@ -356,24 +352,26 @@ export default function GanttChart({
             const hasActual = extras?.actualDuration != null && extras.actualDuration > 0
             const hasRemain = extras?.remainingDuration != null && extras.remainingDuration > 0
             const showExtra = hasActual || hasRemain
-            const extraText = showExtra ? `(${extras!.actualDuration ?? '?'}+${extras!.remainingDuration ?? '?'})` : ''
+            // Если остаток = 0 (100% выполнено) - показываем только факт, без "+?"
+            const remainIsZero = extras?.remainingDuration != null && extras.remainingDuration === 0
+            const extraText = showExtra
+              ? remainIsZero || !hasRemain
+                ? `${extras!.actualDuration ?? '?'}d`
+                : `${extras!.actualDuration ?? '?'}+${extras!.remainingDuration ?? '?'}d`
+              : ''
             const actualLineX = hasActual && !isMilestone && act.duration > 0
               ? Math.min(barW, (extras!.actualDuration! / act.duration) * barW) : null
-
             let barFill: string; let barOpacity: number; let textOpacity: number
             if (completed) { barFill = act.on_critical ? 'url(#critGradMuted)' : 'url(#normalGradMuted)'; barOpacity = 0.85; textOpacity = 0.55 }
             else { barFill = act.on_critical ? 'url(#critGrad)' : 'url(#normalGrad)'; barOpacity = isDragging ? 0.7 : 0.92; textOpacity = 0.9 }
-
             let barStroke: string; let barStrokeWidth: number
             if (isDropTarget) { barStroke = '#34d399'; barStrokeWidth = 2.5 }
             else if (isDragging) { barStroke = 'rgba(255,255,255,0.6)'; barStrokeWidth = 1 }
-            else if (isLocked && !completed) { barStroke = '#60a5fa'; barStrokeWidth = 1.5 }   // синяя рамка = начата
+            else if (isLocked && !completed) { barStroke = '#60a5fa'; barStrokeWidth = 1.5 }
             else if (isHardStart) { barStroke = '#fbbf24'; barStrokeWidth = 2 }
             else { barStroke = 'none'; barStrokeWidth = 0 }
-
             // Курсор для заблокированных работ
             const barCursor = isLocked ? 'not-allowed' : (dragWithTarget?.id === act.id ? 'grabbing' : 'grab')
-
             const handleBarMouseDown = (e: React.MouseEvent) => {
               // Начатые и завершённые работы нельзя перетаскивать
               if (isLocked) return
@@ -381,7 +379,6 @@ export default function GanttChart({
               setDragState({ id: act.id, startX: e.clientX, currentX: e.clientX, origEs: es, hasMoved: false })
               dropTargetRef.current = null
             }
-
             return (
               <div key={act.id} className="relative flex items-center border-b border-steel-800 transition-colors"
                 style={{ height: ROW_H, background: isSelected ? selectedBg : rowBg }}>
@@ -415,7 +412,7 @@ export default function GanttChart({
                     {isMilestone ? (
                       <g style={{ cursor: barCursor }}
                         onMouseDown={handleBarMouseDown}
-                        onMouseEnter={e => setTooltip({ text: act.name, x: e.clientX, y: e.clientY })}
+                        onMouseEnter={e => setTooltip({ text: act.name + (showExtra ? `  [${Math.round(act.duration)}d${extraText ? ' · ' + extraText : ''}]` : ''), x: e.clientX, y: e.clientY })}
                         onMouseMove={e => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
                         onMouseLeave={() => setTooltip(null)}>
                         <rect x={displayEs * scale - 12} y={ROW_H / 2 - 12} width={24} height={24} fill="transparent" />
@@ -425,7 +422,7 @@ export default function GanttChart({
                     ) : (
                       <g style={{ cursor: barCursor }}
                         onMouseDown={handleBarMouseDown}
-                        onMouseEnter={e => setTooltip({ text: act.name, x: e.clientX, y: e.clientY })}
+                        onMouseEnter={e => setTooltip({ text: act.name + (showExtra ? `  [${Math.round(act.duration)}d${extraText ? ' · ' + extraText : ''}]` : ''), x: e.clientX, y: e.clientY })}
                         onMouseMove={e => setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
                         onMouseLeave={() => setTooltip(null)}>
                         {floatW > 0 && <rect x={displayEf * scale} y={(ROW_H - BAR_H * 0.4) / 2} width={floatW} height={BAR_H * 0.4} rx={2} fill="#1e3a52" opacity={completed ? 0.3 : 0.7} />}
@@ -434,8 +431,20 @@ export default function GanttChart({
                           <line x1={displayEs * scale + actualLineX} y1={(ROW_H - BAR_H) / 2 + 2} x2={displayEs * scale + actualLineX} y2={(ROW_H - BAR_H) / 2 + BAR_H - 2}
                             stroke={completed ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.85)'} strokeWidth={2} strokeLinecap="round" />
                         )}
-                        {barW > 40 && <text x={displayEs * scale + barW / 2} y={ROW_H / 2 + 4} fill="white" fontSize={9} fontFamily="JetBrains Mono" textAnchor="middle" opacity={textOpacity}>{Math.round(act.duration)}d{showExtra && barW > 80 ? ` ${extraText}` : ''}</text>}
-                        {showExtra && barW <= 80 && barW > 20 && <text x={displayEs * scale + barW / 2} y={(ROW_H - BAR_H) / 2 - 3} fill="#fbbf24" fontSize={8} fontFamily="JetBrains Mono" textAnchor="middle" opacity={0.8}>{extraText}</text>}
+                        {barW > 12 && (
+                          <text
+                            x={displayEs * scale + barW / 2}
+                            y={ROW_H / 2 + 4}
+                            fill="white" fontSize={9} fontFamily="JetBrains Mono"
+                            textAnchor="middle" opacity={textOpacity}
+                            clipPath={`url(#clip-${act.id})`}
+                          >
+                            {Math.round(act.duration)}d{showExtra ? ` ${extraText}` : ''}
+                          </text>
+                        )}
+                        <clipPath id={`clip-${act.id}`}>
+                          <rect x={displayEs * scale} y={(ROW_H - BAR_H) / 2} width={barW} height={BAR_H} />
+                        </clipPath>
                       </g>
                     )}
                   </svg>

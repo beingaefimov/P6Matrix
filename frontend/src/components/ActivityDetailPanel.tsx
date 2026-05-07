@@ -1,4 +1,4 @@
-/**Панель деталей задачи.
+/** Панель свойств задачи.
  * - Базовые поля (duration, dates, float) - из ActivityDisplay (всегда доступны)
  * - Расширенные поля (notes, UDF, predecessors, assignments) - из ActivityDetail
  *   (загружается лениво при клике, показываем skeleton пока грузится) */
@@ -8,7 +8,8 @@ import { X, Plus, Trash2, Lock, CheckCircle2, Loader2 } from 'lucide-react'
 import type { ActivityDisplay } from '../engine/useScheduler'
 import type { ActivityDetail } from '../utils/api'
 import type { ResourceOut } from '../types'
-import { pxpGetAllRelations,
+import {
+  pxpGetAllRelations, pxpGetAssignmentsForActivity,
   pxpAddAssignment, pxpRemoveAssignment, pxpSetAssignmentField,
   pxpAddRelation, pxpRemoveRelation, pxpUpdateRelationType, pxpUpdateRelationLag,
 } from '../utils/pxpMutations'
@@ -28,8 +29,8 @@ interface Props {
   onSetRemainingDuration: (actId: string, value: number | null) => void
   onSetCompleted: (actId: string, completed: boolean) => void
   onSetHardStart: (actId: string, value: boolean) => void
-  /** Универсальное обновление поля задачи по индексу */
   onUpdateActivityField: (actId: string, fieldIdx: number, value: string) => void
+  onApplyPxpText: (newPxp: string) => void
   loading?: boolean
 }
 
@@ -39,45 +40,71 @@ export default function ActivityDetailPanel({
   activity, detail, detailLoading, onClose,
   pxpText, activities, resources, hardStart, completed,
   onSetDuration, onSetActualDuration, onSetRemainingDuration,
-  onSetCompleted, onSetHardStart, onUpdateActivityField, loading,
+  onSetCompleted, onSetHardStart, onApplyPxpText, loading,
 }: Props) {
   const { t } = useTranslation()
-  const [editDuration, setEditDuration]   = useState(String(Math.round(activity.duration)))
-  const [editActualDur, setEditActualDur] = useState('')
-  const [editRemainDur, setEditRemainDur] = useState('')
-  const [newPredId, setNewPredId]         = useState('')
-  const [newRelType, setNewRelType]       = useState('FS')
-  const [newRelLag, setNewRelLag]         = useState('0')
-  const [newResId, setNewResId]           = useState('')
-  const [newResUnits, setNewResUnits]     = useState('1')
 
+  // liveFields - всегда актуальные поля из pxpText (обновляются мгновенно после мутации,
+  // не ждут завершения CPM-цикла). Объявляем ДО useEffect чтобы он мог их использовать
+  const liveFields = useMemo(() => {
+    let inAct = false
+    for (const line of pxpText.split('\n')) {
+      const t = line.trim()
+      if (t === '@ACTIVITIES') { inAct = true; continue }
+      if (inAct && t.startsWith('@')) break
+      if (!inAct || t.startsWith('#') || !t) continue
+      const parts = t.split('|').map(s => s.trim())
+      if (parts[0] !== activity.id) continue
+      return {
+        pct_complete: parts[10] ? parseFloat(parts[10]) : 0,
+        actual_start: parts[8] || null,
+        actual_finish: parts[9] || null,
+        actual_duration: parts[13] ? parseFloat(parts[13]) : null,
+        remaining_duration: parts[14] ? parseFloat(parts[14]) : null,
+        constraint_es: parts[6]  ? parseFloat(parts[6])  : null,
+      }
+    }
+    return {
+      pct_complete: activity.pct_complete ?? 0,
+      actual_start: activity.actual_start ?? null,
+      actual_finish: activity.actual_finish ?? null,
+      actual_duration: activity.actual_duration ?? null,
+      remaining_duration: activity.remaining_duration ?? null,
+      constraint_es: activity.constraint_es ?? null,
+    }
+  }, [pxpText, activity.id])
+
+  const [editDuration, setEditDuration]   = useState(String(Math.round(activity.duration)))
+  const [editActualDur, setEditActualDur] = useState(liveFields.actual_duration != null ? String(liveFields.actual_duration) : '')
+  const [editRemainDur, setEditRemainDur] = useState(liveFields.remaining_duration != null ? String(liveFields.remaining_duration) : '')
+  const [newPredId, setNewPredId] = useState('')
+  const [newRelType, setNewRelType]  = useState('FS')
+  const [newRelLag, setNewRelLag]  = useState('0')
+  const [newResId, setNewResId] = useState('')
+  const [newResUnits, setNewResUnits] = useState('1')
+
+  // Сбрасываем редактируемые поля при смене задачи
   useEffect(() => {
     setEditDuration(String(Math.round(activity.duration)))
-    setEditActualDur(activity.actual_duration != null ? String(activity.actual_duration) : '')
-    setEditRemainDur(activity.remaining_duration != null ? String(activity.remaining_duration) : '')
+    setEditActualDur(liveFields.actual_duration != null ? String(liveFields.actual_duration) : '')
+    setEditRemainDur(liveFields.remaining_duration != null ? String(liveFields.remaining_duration) : '')
     setNewPredId(''); setNewRelType('FS'); setNewRelLag('0')
     setNewResId(''); setNewResUnits('1')
-  }, [activity.id, activity.duration, activity.actual_duration, activity.remaining_duration])
+  }, [activity.id]) // только при смене задачи, не при каждом изменении поля
 
   // Связи берём из pxp_text (всегда актуальны, т.к. pxp_text обновляется синхронно)
   const allRels = useMemo(() => pxpGetAllRelations(pxpText), [pxpText])
   const predecessors = useMemo(() => allRels.filter(r => r.succ === activity.id), [allRels, activity.id])
-  const successors   = useMemo(() => allRels.filter(r => r.pred === activity.id), [allRels, activity.id])
+  const successors = useMemo(() => allRels.filter(r => r.pred === activity.id), [allRels, activity.id])
 
-  // Assignments берём из detail (lazy) или из pxp_text напрямую
-  const assignments = useMemo(() => {
-    if (detail?.assignments) {
-      const resMap = new Map(resources.map(r => [r.id, r.name]))
-      return detail.assignments.map(a => ({
-        resource_id: a.resource_id,
-        resource_name: resMap.get(a.resource_id) || a.resource_id,
-        planned_units: a.units,
-        actual_qty: a.actual_qty,
-        remaining_qty: a.remaining_qty,
-      }))
-    }
-    return []
-  }, [detail, resources])
+  // Assignments всегда берём из pxpText - он обновляется мгновенно после любой мутации.
+  // detail.assignments используем только при первом открытии если pxpText ещё не содержит
+  // данных (но pxpAddAssignment/pxpRemoveAssignment сразу пишут в pxpText, поэтому
+  // после любого изменения этот useMemo пересчитается и покажет актуальные данные).
+  const assignments = useMemo(
+    () => pxpGetAssignmentsForActivity(pxpText, activity.id, resources),
+    [pxpText, activity.id, resources]
+  )
 
   const actById = useMemo(() => new Map(activities.map(a => [a.id, a])), [activities])
   const existingPredIds = useMemo(() => new Set(predecessors.map(r => r.pred)), [predecessors])
@@ -104,20 +131,16 @@ export default function ActivityDetailPanel({
   const handleActualDurBlur = () => {
     const val = editActualDur.trim() === '' ? null : parseFloat(editActualDur)
     if (val === null || (!isNaN(val) && val >= 0)) onSetActualDuration(activity.id, val)
-    else setEditActualDur(activity.actual_duration != null ? String(activity.actual_duration) : '')
+    else setEditActualDur(liveFields.actual_duration != null ? String(liveFields.actual_duration) : '')
   }
 
   const handleRemainDurBlur = () => {
     const val = editRemainDur.trim() === '' ? null : parseFloat(editRemainDur)
     if (val === null || (!isNaN(val) && val >= 0)) onSetRemainingDuration(activity.id, val)
-    else setEditRemainDur(activity.remaining_duration != null ? String(activity.remaining_duration) : '')
+    else setEditRemainDur(liveFields.remaining_duration != null ? String(liveFields.remaining_duration) : '')
   }
 
-  // Мутации assignments и relations - обновляем pxp_text напрямую,
-  // затем запускаем пересчёт через onUpdateActivityField с фиктивным полем
-  // (реальный перезапуск происходит в useScheduler при любом вызове updateActivityField)
-  // TODO: вынести addAssignment/addRelation в useScheduler как отдельные методы
-  // Пока: вызываем onUpdateActivityField с fieldIdx=-1 как триггер пересчёта
+  // Мутации assignments/relations: передаём готовый pxp_text через onApplyPxpText
 
   const inputCls = 'w-20 px-2 py-1 text-xs font-mono bg-steel-800 border border-steel-600 rounded text-steel-200 focus:outline-none focus:border-amber-400/60 transition-colors'
   const selectCls = 'px-2 py-1 text-xs font-mono bg-steel-800 border border-steel-600 rounded text-steel-200 focus:outline-none focus:border-amber-400/60 transition-colors'
@@ -188,8 +211,8 @@ export default function ActivityDetailPanel({
               [t('col_ef'), activity.ef_date],
               [t('col_ls'), activity.ls_date],
               [t('col_lf'), activity.lf_date],
-              [t('detail_actual_start'), activity.actual_start || '-'],
-              [t('detail_actual_finish'), activity.actual_finish || '-'],
+              [t('detail_actual_start'), liveFields.actual_start || '-'],
+              [t('detail_actual_finish'), liveFields.actual_finish || '-'],
             ] as [string, string][]).map(([label, value], i) => (
               <div key={i} className="flex items-center gap-2">
                 <span className={labelCls}>{label}</span>
@@ -230,7 +253,7 @@ export default function ActivityDetailPanel({
             </div>
             <div className="flex items-center gap-2">
               <span className={labelCls}>{t('detail_complete')}</span>
-              <span className={valueCls}>{activity.pct_complete != null ? `${activity.pct_complete}%` : '-'}</span>
+              <span className={valueCls}>{liveFields.pct_complete != null ? `${liveFields.pct_complete}%` : '-'}</span>
             </div>
           </div>
 
@@ -287,8 +310,7 @@ export default function ActivityDetailPanel({
                               onChange={e => {
                                 const v = parseFloat(e.target.value)
                                 if (!isNaN(v) && v >= 0)
-                                  onUpdateActivityField(activity.id, -1,
-                                    pxpSetAssignmentField(pxpText, activity.id, asgn.resource_id, 3, String(v)))
+                                  onApplyPxpText(pxpSetAssignmentField(pxpText, activity.id, asgn.resource_id, 3, String(v)))
                               }}
                               className={inputCls + ' w-16'} disabled={loading} />
                           </td>
@@ -297,8 +319,7 @@ export default function ActivityDetailPanel({
                               value={asgn.actual_qty ?? ''}
                               onChange={e => {
                                 const v = e.target.value.trim() === '' ? '' : String(parseFloat(e.target.value))
-                                onUpdateActivityField(activity.id, -1,
-                                  pxpSetAssignmentField(pxpText, activity.id, asgn.resource_id, 5, v))
+                                onApplyPxpText(pxpSetAssignmentField(pxpText, activity.id, asgn.resource_id, 5, v))
                               }}
                               className={inputCls + ' w-16'} disabled={loading} />
                           </td>
@@ -307,15 +328,13 @@ export default function ActivityDetailPanel({
                               value={asgn.remaining_qty ?? ''}
                               onChange={e => {
                                 const v = e.target.value.trim() === '' ? '' : String(parseFloat(e.target.value))
-                                onUpdateActivityField(activity.id, -1,
-                                  pxpSetAssignmentField(pxpText, activity.id, asgn.resource_id, 7, v))
+                                onApplyPxpText(pxpSetAssignmentField(pxpText, activity.id, asgn.resource_id, 7, v))
                               }}
                               className={inputCls + ' w-16'} disabled={loading} />
                           </td>
                           <td className="px-2 py-1">
                             <button
-                              onClick={() => onUpdateActivityField(activity.id, -1,
-                                pxpRemoveAssignment(pxpText, activity.id, asgn.resource_id))}
+                              onClick={() => onApplyPxpText(pxpRemoveAssignment(pxpText, activity.id, asgn.resource_id))}
                               className="p-0.5 rounded hover:bg-rose-500/20 text-steel-500 hover:text-rose-400 transition-colors"
                               disabled={loading} title={t('remove')}>
                               <Trash2 className="w-3 h-3" />
@@ -337,7 +356,7 @@ export default function ActivityDetailPanel({
                   <button
                     onClick={() => {
                       if (!newResId) return
-                      onUpdateActivityField(activity.id, -1, pxpAddAssignment(pxpText, activity.id, newResId, parseFloat(newResUnits) || 1))
+                      onApplyPxpText(pxpAddAssignment(pxpText, activity.id, newResId, parseFloat(newResUnits) || 1))
                       setNewResId(''); setNewResUnits('1')
                     }}
                     disabled={!newResId || loading}
@@ -374,18 +393,18 @@ export default function ActivityDetailPanel({
                         <td className="px-2 py-1 text-steel-300 max-w-[200px] truncate">{predAct?.name || '-'}</td>
                         <td className="px-2 py-1">
                           <select value={rel.type}
-                            onChange={e => onUpdateActivityField(activity.id, -1, pxpUpdateRelationType(pxpText, rel.pred, activity.id, e.target.value))}
+                            onChange={e => onApplyPxpText(pxpUpdateRelationType(pxpText, rel.pred, activity.id, e.target.value))}
                             className={selectCls + ' w-16'} disabled={loading}>
                             {RELATION_TYPES.map(rt => <option key={rt} value={rt}>{rt}</option>)}
                           </select>
                         </td>
                         <td className="px-2 py-1">
                           <input type="number" min={0} value={rel.lag}
-                            onChange={e => onUpdateActivityField(activity.id, -1, pxpUpdateRelationLag(pxpText, rel.pred, activity.id, parseInt(e.target.value) || 0))}
+                            onChange={e => onApplyPxpText(pxpUpdateRelationLag(pxpText, rel.pred, activity.id, parseInt(e.target.value) || 0))}
                             className={inputCls + ' w-14'} disabled={loading} />
                         </td>
                         <td className="px-2 py-1">
-                          <button onClick={() => onUpdateActivityField(activity.id, -1, pxpRemoveRelation(pxpText, rel.pred, activity.id))}
+                          <button onClick={() => onApplyPxpText(pxpRemoveRelation(pxpText, rel.pred, activity.id))}
                             className="p-0.5 rounded hover:bg-rose-500/20 text-steel-500 hover:text-rose-400 transition-colors"
                             disabled={loading} title={t('remove')}>
                             <Trash2 className="w-3 h-3" />
@@ -411,7 +430,7 @@ export default function ActivityDetailPanel({
               <button
                 onClick={() => {
                   if (!newPredId) return
-                  onUpdateActivityField(activity.id, -1, pxpAddRelation(pxpText, newPredId, activity.id, newRelType, parseInt(newRelLag) || 0))
+                  onApplyPxpText(pxpAddRelation(pxpText, newPredId, activity.id, newRelType, parseInt(newRelLag) || 0))
                   setNewPredId('')
                 }}
                 disabled={!newPredId || loading}

@@ -36,6 +36,7 @@ export default function App() {
     moveActivity,
     addRelation,
     updateActivityField,
+    applyPxpText,
     fetchDetail,
     getPxpText,
   } = useScheduler()
@@ -48,6 +49,7 @@ export default function App() {
   // Детали задачи подгружаются лениво при клике
   const [detailData, setDetailData] = useState<ActivityDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  // Derived sets из pxp_text
   const pxpText = project?.pxp_text ?? ''
   const lockedIds = useMemo(() => pxpParseLockedIds(pxpText), [pxpText])
   const completedIds = useMemo(() => pxpParseCompletedIds(pxpText), [pxpText])
@@ -68,6 +70,7 @@ export default function App() {
     setHardStarts(new Set())
   }, [levelResourcesAction, levelWithinFloat])
 
+  // Drag bar на Ганте - пересчёт на клиенте, никакого бэкенда
   const handleActivityMove = useCallback((id: string, newEsDays: number) => {
     if (lockedIds.has(id)) return  // начатые/завершённые не двигаются
     moveActivity(id, newEsDays)
@@ -158,15 +161,16 @@ export default function App() {
 
   // Панель деталей работает с pxpMutations через updateActivityField,
   // но для assignments/relations нужен доступ к полным данным из detailData
+
   const selectedActivityDisplay = selectedActivityId && project
     ? project.activities.find(a => a.id === selectedActivityId) ?? null
     : null
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'gantt',     label: t('tab_gantt') },
-    { id: 'table',     label: t('tab_table') },
+    { id: 'gantt', label: t('tab_gantt') },
+    { id: 'table', label: t('tab_table') },
     { id: 'resources', label: t('tab_resources') },
-    { id: 'pxp',       label: t('tab_pxp') },
+    { id: 'pxp', label: t('tab_pxp') },
   ]
 
   return (
@@ -221,11 +225,9 @@ export default function App() {
           </div>
         </div>
       </header>
-
       {/* Main */}
       <main className="mx-auto px-4 sm:px-6 py-6 space-y-6">
         {!project && <UploadZone onFile={handleFile} loading={loading} />}
-
         {error && (
           <div className="flex items-start gap-3 bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-3 animate-slide-in">
             <AlertTriangle className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />
@@ -235,7 +237,6 @@ export default function App() {
             </div>
           </div>
         )}
-
         {warnings.length > 0 && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 animate-slide-in">
             <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 mb-2">
@@ -246,7 +247,6 @@ export default function App() {
             </ul>
           </div>
         )}
-
         {project && (
           <div className="space-y-5 animate-fade-in">
             {/* Project header */}
@@ -268,7 +268,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-
             {/* Tabs */}
             <div>
               <div className="flex gap-1 border-b border-steel-800 mb-4">
@@ -287,7 +286,6 @@ export default function App() {
                   </button>
                 ))}
               </div>
-
               {activeTab === 'gantt' && (
                 <GanttChart
                   activities={project.activities}
@@ -305,7 +303,6 @@ export default function App() {
                   lockedIds={lockedIds}
                 />
               )}
-
               {activeTab === 'table' && (
                 <ActivityTable
                   activities={project.activities}
@@ -313,7 +310,6 @@ export default function App() {
                   completedIds={completedIds}
                 />
               )}
-
               {activeTab === 'resources' && (
                 <ResourceChart
                   resources={project.resources}
@@ -321,7 +317,6 @@ export default function App() {
                   startDate={project.start_date}
                 />
               )}
-
               {activeTab === 'pxp' && (
                 <div className="rounded-xl border border-steel-700 bg-steel-950 overflow-auto">
                   <pre className="text-xs font-mono text-steel-300 p-5 leading-relaxed whitespace-pre-wrap">
@@ -332,7 +327,6 @@ export default function App() {
             </div>
           </div>
         )}
-
         {!project && !loading && !error && (
           <div className="text-center py-16 text-steel-600">
             <Layers className="w-12 h-12 mx-auto mb-4 opacity-30" />
@@ -341,7 +335,6 @@ export default function App() {
           </div>
         )}
       </main>
-
       {/* Activity detail panel - появляется при клике, данные загружаются лениво */}
       {selectedActivityDisplay && (
         <ActivityDetailPanel
@@ -360,6 +353,7 @@ export default function App() {
           onSetCompleted={handleSetCompleted}
           onSetHardStart={handleSetHardStart}
           onUpdateActivityField={updateActivityField}
+          onApplyPxpText={applyPxpText}
           loading={loading || detailLoading}
         />
       )}

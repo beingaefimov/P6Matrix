@@ -1,12 +1,13 @@
-/** Единственная точка управления расписанием.
+/** React hook - единственная точка управления расписанием.
  * Все взаимодействия с графиком (drag, level, recalc) здесь.
  * Никаких запросов к бэкенду при интерактивных операциях.
  * Поток данных:
- *   Upload - бэкенд парсит - минимальные данные -
- *   useScheduler хранит activities/relations/resources/assignments + pxp_text -
- *   при любом изменении - запускает CPM на клиенте (WebGPU/CPU) -
+ *   Upload -> бэкенд парсит -> минимальные данные ->
+ *   useScheduler хранит activities/relations/resources/assignments + pxp_text ->
+ *   при любом изменении -> запускает CPM на клиенте (WebGPU/CPU) ->
  *   возвращает готовые dates для Ганта.
- * Детали задачи (name, notes, UDF для формы) - lazy GET /activity/detail */
+ * Детали задачи (name, notes, UDF для формы) -> lazy GET /activity/detail
+ */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import {
@@ -16,8 +17,7 @@ import {
 } from './cpmEngine'
 import { uploadFileRaw, fetchActivityDetail } from '../utils/api'
 import {
-  pxpSetConstraint, pxpClearConstraint, pxpAddRelation, pxpRemoveRelation,
-  pxpSetActivityField, pxpParseLockedIds,
+  pxpSetConstraint, pxpAddRelation, pxpSetActivityField,
 } from '../utils/pxpMutations'
 
 export interface ActivityDisplay extends ActivityMin {
@@ -113,10 +113,10 @@ export function useScheduler() {
 
   // Исходные данные (не меняются при пересчёте)
   const activitiesRef = useRef<ActivityMin[]>([])
-  const relationsRef  = useRef<Relation[]>([])
-  const resourcesRef  = useRef<Resource[]>([])
+  const relationsRef = useRef<Relation[]>([])
+  const resourcesRef = useRef<Resource[]>([])
   const assignmentsRef = useRef<Assignment[]>([])
-  const pxpTextRef    = useRef<string>('')
+  const pxpTextRef = useRef<string>('')
   const projectMetaRef = useRef<{ project_id: string; project_name: string; start_date: string; data_date: string; must_finish: string }>({
     project_id: '', project_name: '', start_date: '2024-01-01', data_date: '2024-01-01', must_finish: 'NULL',
   })
@@ -144,6 +144,7 @@ export function useScheduler() {
           activities, relations, resourcesRef.current, assignmentsRef.current,
           result, levelOpts
         )
+        if (newEF) {};
         // Применяем новые ES как constraints и пересчитываем
         const leveled = activities.map((a, i) => ({
           ...a,
@@ -189,6 +190,7 @@ export function useScheduler() {
     }))
   }, [])
 
+  // Загрузка файла - единственный запрос к бэкенду
   const loadFile = useCallback(async (file: File) => {
     setState(s => ({ ...s, loading: true, error: null, warnings: [] }))
     try {
@@ -233,7 +235,7 @@ export function useScheduler() {
     _applyResult(activitiesRef.current, result, newPxp, [])
   }, [_runSchedule, _applyResult])
 
-  // Перемещение задачи на Ганте (drag) - только клиент
+  // Перемещение задачи на Ганте (drag) - только клиент, мгновенный отклик
   const moveActivity = useCallback(async (actId: string, newEsDays: number) => {
     const activities = activitiesRef.current
     const idx = activities.findIndex(a => a.id === actId)
@@ -277,23 +279,75 @@ export function useScheduler() {
     setState(s => ({ ...s, loading: true }))
     pxpTextRef.current = pxpSetActivityField(pxpTextRef.current, actId, fieldIdx, value)
 
-    // Обновляем локальные данные
+    // Обновляем локальные данные и пересчитываем duration если изменились actual/remaining
     activitiesRef.current = activitiesRef.current.map(a => {
       if (a.id !== actId) return a
       const updated = { ...a }
-      if (fieldIdx === 2) updated.duration = parseFloat(value) || a.duration
-      if (fieldIdx === 6) updated.constraint_es = value ? parseFloat(value) : null
-      if (fieldIdx === 8) updated.actual_start = value || null
-      if (fieldIdx === 9) updated.actual_finish = value || null
+      if (fieldIdx === 2)  updated.duration = parseFloat(value) || a.duration
+      if (fieldIdx === 6)  updated.constraint_es = value ? parseFloat(value) : null
+      if (fieldIdx === 8)  updated.actual_start = value || null
+      if (fieldIdx === 9)  updated.actual_finish = value || null
       if (fieldIdx === 10) updated.pct_complete = parseFloat(value) || 0
       if (fieldIdx === 13) updated.actual_duration = value ? parseFloat(value) : null
       if (fieldIdx === 14) updated.remaining_duration = value ? parseFloat(value) : null
+
+      // Если изменилась фактическая или остаточная длительность -
+      // пересчитываем плановую длительность и % выполнения
+      if (fieldIdx === 13 || fieldIdx === 14) {
+        const ad = fieldIdx === 13 ? updated.actual_duration : a.actual_duration
+        const rd = fieldIdx === 14 ? updated.remaining_duration : a.remaining_duration
+        if (ad != null && ad >= 0 && rd != null && rd >= 0) {
+          const newDur = ad + rd
+          if (newDur > 0) {
+            updated.duration = newDur
+            pxpTextRef.current = pxpSetActivityField(pxpTextRef.current, actId, 2, String(newDur))
+          }
+          // % выполнения = actual / (actual + remaining) * 100
+          const pct = (ad + rd) > 0 ? Math.round(ad / (ad + rd) * 100) : 0
+          updated.pct_complete = pct
+          pxpTextRef.current = pxpSetActivityField(pxpTextRef.current, actId, 10, String(pct))
+        }
+      }
       return updated
     })
 
     const result = await _runSchedule(activitiesRef.current)
     if (!result) return
     _applyResult(activitiesRef.current, result, pxpTextRef.current, [])
+  }, [_runSchedule, _applyResult])
+
+  /** Применяеv готовый pxp_text напрямую и перезапускаеv CPM.
+   * Используется когда мутация затрагивает несколько полей сразу
+   * (assignments, relations) и проще передать новый текст целиком */
+  const applyPxpText = useCallback(async (newPxp: string) => {
+    setState(s => ({ ...s, loading: true }))
+    pxpTextRef.current = newPxp
+
+    // Перепарсим activities из нового pxp чтобы подхватить любые изменения
+    const lines = newPxp.split('\n')
+    let inAct = false
+    const updatedMap = new Map(activitiesRef.current.map(a => [a.id, { ...a }]))
+    for (const line of lines) {
+      const t = line.trim()
+      if (t === '@ACTIVITIES') { inAct = true; continue }
+      if (inAct && t.startsWith('@')) break
+      if (!inAct || t.startsWith('#') || !t) continue
+      const parts = t.split('|').map(s => s.trim())
+      const id = parts[0]; if (!id || !updatedMap.has(id)) continue
+      const a = updatedMap.get(id)!
+      if (parts[2]) a.duration = parseFloat(parts[2]) || a.duration
+      if (parts[6] !== undefined) a.constraint_es = parts[6] ? parseFloat(parts[6]) : null
+      if (parts[8] !== undefined) a.actual_start = parts[8] || null
+      if (parts[9] !== undefined) a.actual_finish = parts[9] || null
+      if (parts[10] !== undefined) a.pct_complete = parts[10] ? parseFloat(parts[10]) : 0
+      if (parts[13] !== undefined) a.actual_duration = parts[13] ? parseFloat(parts[13]) : null
+      if (parts[14] !== undefined) a.remaining_duration = parts[14] ? parseFloat(parts[14]) : null
+    }
+    activitiesRef.current = Array.from(updatedMap.values())
+
+    const result = await _runSchedule(activitiesRef.current)
+    if (!result) return
+    _applyResult(activitiesRef.current, result, newPxp, [])
   }, [_runSchedule, _applyResult])
 
   // Lazy-загрузка деталей задачи при клике - единственный лёгкий запрос к бэкенду
@@ -312,6 +366,7 @@ export function useScheduler() {
     moveActivity,
     addRelation,
     updateActivityField,
+    applyPxpText,
     fetchDetail,
     getPxpText,
   }
