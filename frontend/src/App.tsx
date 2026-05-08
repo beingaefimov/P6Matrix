@@ -17,13 +17,14 @@ import UploadZone from './components/UploadZone'
 import GanttChart from './components/GanttChart'
 import ActivityTable from './components/ActivityTable'
 import ResourceChart from './components/ResourceChart'
+import AssignmentsTab from './components/AssignmentsTab'
 import ProjectStats from './components/ProjectStats'
 import ActivityDetailPanel from './components/ActivityDetailPanel'
 import { useScheduler } from './engine/useScheduler'
 import { pxpParseLockedIds, pxpParseCompletedIds } from './utils/pxpMutations'
 import type { ActivityDetail } from './utils/api'
 
-type Tab = 'gantt' | 'table' | 'resources' | 'pxp'
+type Tab = 'gantt' | 'table' | 'resources' | 'assignments' | 'pxp'
 
 export default function App() {
   const { t, i18n } = useTranslation()
@@ -170,6 +171,7 @@ export default function App() {
     { id: 'gantt', label: t('tab_gantt') },
     { id: 'table', label: t('tab_table') },
     { id: 'resources', label: t('tab_resources') },
+    { id: 'assignments', label: t('tab_assignments') },
     { id: 'pxp', label: t('tab_pxp') },
   ]
 
@@ -225,9 +227,11 @@ export default function App() {
           </div>
         </div>
       </header>
+
       {/* Main */}
       <main className="mx-auto px-4 sm:px-6 py-6 space-y-6">
         {!project && <UploadZone onFile={handleFile} loading={loading} />}
+
         {error && (
           <div className="flex items-start gap-3 bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-3 animate-slide-in">
             <AlertTriangle className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />
@@ -237,6 +241,7 @@ export default function App() {
             </div>
           </div>
         )}
+
         {warnings.length > 0 && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 animate-slide-in">
             <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 mb-2">
@@ -247,6 +252,7 @@ export default function App() {
             </ul>
           </div>
         )}
+
         {project && (
           <div className="space-y-5 animate-fade-in">
             {/* Project header */}
@@ -268,6 +274,7 @@ export default function App() {
                 </div>
               </div>
             </div>
+
             {/* Tabs */}
             <div>
               <div className="flex gap-1 border-b border-steel-800 mb-4">
@@ -286,6 +293,7 @@ export default function App() {
                   </button>
                 ))}
               </div>
+
               {activeTab === 'gantt' && (
                 <GanttChart
                   activities={project.activities}
@@ -303,6 +311,7 @@ export default function App() {
                   lockedIds={lockedIds}
                 />
               )}
+
               {activeTab === 'table' && (
                 <ActivityTable
                   activities={project.activities}
@@ -310,13 +319,27 @@ export default function App() {
                   completedIds={completedIds}
                 />
               )}
+
               {activeTab === 'resources' && (
                 <ResourceChart
                   resources={project.resources}
                   resourceLoad={project.resource_load}
                   startDate={project.start_date}
+                  activities={project.activities}
+                  assignments={project.assignments}
                 />
               )}
+
+              {activeTab === 'assignments' && (
+                <AssignmentsTab
+                  resources={project.resources}
+                  assignments={project.assignments}
+                  activities={project.activities}
+                  resourceLoad={project.resource_load}
+                  startDate={project.start_date}
+                />
+              )}
+
               {activeTab === 'pxp' && (
                 <div className="rounded-xl border border-steel-700 bg-steel-950 overflow-auto">
                   <pre className="text-xs font-mono text-steel-300 p-5 leading-relaxed whitespace-pre-wrap">
@@ -327,6 +350,7 @@ export default function App() {
             </div>
           </div>
         )}
+
         {!project && !loading && !error && (
           <div className="text-center py-16 text-steel-600">
             <Layers className="w-12 h-12 mx-auto mb-4 opacity-30" />
@@ -335,6 +359,7 @@ export default function App() {
           </div>
         )}
       </main>
+
       {/* Activity detail panel - появляется при клике, данные загружаются лениво */}
       {selectedActivityDisplay && (
         <ActivityDetailPanel

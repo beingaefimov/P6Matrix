@@ -34,7 +34,8 @@ const resources = {
       filter_all: 'All Resources', filter_overloaded: 'Overloaded', filter_underloaded: 'Underloaded',
       no_resources_match: 'No resources match the filter', create_relation: 'Create link',
       drop_to_link_hint: 'Release on another bar to create FS link', shift: 'Shift', new_start: 'New start',
-      completed_badge: 'DONE',
+      completed_badge: 'DONE', tab_assignments: 'Assignments', no_assignments: 'No assignments',
+      search_resource: 'Search resource…',
     }
   },
   ru: {
@@ -68,7 +69,7 @@ const resources = {
       filter_all: 'Все ресурсы', filter_overloaded: 'Перегруженные', filter_underloaded: 'Недогруженные',
       no_resources_match: 'Нет ресурсов, подходящих под фильтр', create_relation: 'Создать связь',
       drop_to_link_hint: 'Отпустите на другой задаче для создания FS-связи', shift: 'Сдвиг', new_start: 'Новое начало',
-      completed_badge: 'Заверш',
+      completed_badge: 'Заверш', tab_assignments: 'Назначения', no_assignments: 'Нет назначений', search_resource: 'Поиск ресурса…',
     }
   }
 }

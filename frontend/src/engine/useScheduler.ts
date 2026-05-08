@@ -43,6 +43,7 @@ export interface ProjectState {
   must_finish: string
   activities: ActivityDisplay[]
   resources: Resource[]
+  assignments: Assignment[]
   resource_load: Record<string, number[]>
   duration_days: number
   finish_date: string
@@ -182,6 +183,7 @@ export function useScheduler() {
         ...meta,
         activities: display,
         resources: resourcesRef.current,
+        assignments: assignmentsRef.current,
         resource_load,
         duration_days: Math.ceil(maxEF),
         finish_date: finishDate,

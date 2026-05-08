@@ -2,6 +2,8 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Filter, ChevronDown, Check } from 'lucide-react'
 import type { ResourceOut } from '../types'
+import type { ActivityDisplay } from '../engine/useScheduler'
+import type { Assignment } from '../engine/cpmEngine'
 
 type FilterMode = 'all' | 'overloaded' | 'underloaded'
 
@@ -9,9 +11,11 @@ interface Props {
   resources: ResourceOut[]
   resourceLoad: Record<string, number[]>
   startDate: string
+  activities?: ActivityDisplay[]
+  assignments?: Assignment[]
 }
 
-export default function ResourceChart({ resources, resourceLoad, startDate }: Props) {
+export default function ResourceChart({ resources, resourceLoad, startDate, activities = [], assignments = [] }: Props) {
   const { t } = useTranslation()
   const [filter, setFilter] = useState<FilterMode>('all')
   const [selectedResIds, setSelectedResIds] = useState<Set<string>>(new Set())
@@ -41,7 +45,7 @@ export default function ResourceChart({ resources, resourceLoad, startDate }: Pr
 
   const categoryFiltered = useMemo(() => {
     switch (filter) {
-      case 'overloaded': return resourceStatus.filter(r => r.overloaded)
+      case 'overloaded':  return resourceStatus.filter(r => r.overloaded)
       case 'underloaded': return resourceStatus.filter(r => r.underloaded)
       default: return resourceStatus
     }
@@ -51,6 +55,19 @@ export default function ResourceChart({ resources, resourceLoad, startDate }: Pr
     if (selectedResIds.size === 0) return categoryFiltered
     return categoryFiltered.filter(r => selectedResIds.has(r.res.id))
   }, [categoryFiltered, selectedResIds])
+
+  const actsByResource = useMemo(() => {
+    const actById = new Map(activities.map(a => [a.id, a]))
+    const m = new Map<string, Array<{ id: string; name: string; es: number; ef: number }>>()
+    for (const r of resources) m.set(r.id, [])
+    for (const asgn of assignments) {
+      const list = m.get(asgn.resource_id)
+      if (!list) continue
+      const act = actById.get(asgn.activity_id)
+      if (act) list.push({ id: act.id, name: act.name, es: act.es_days, ef: act.ef_days })
+    }
+    return m
+  }, [resources, assignments, activities])
 
   if (resources.length === 0) {
     return <div className="text-steel-500 text-sm p-8 text-center">{t('no_project')}</div>
@@ -106,6 +123,7 @@ export default function ResourceChart({ resources, resourceLoad, startDate }: Pr
             </button>
           ))}
         </div>
+
         {/* Выпадающий список - скрываем если по текущему фильтру нет ресурсов */}
         {categoryFiltered.length > 0 && (
           <div className="relative" ref={dropRef}>
@@ -168,16 +186,19 @@ export default function ResourceChart({ resources, resourceLoad, startDate }: Pr
           </div>
         )}
       </div>
+
       {categoryFiltered.length === 0 && (
         <div className="text-steel-500 text-sm p-6 text-center border border-steel-700 rounded-xl">
           {t('no_resources_match')}
         </div>
       )}
+
       {filtered.length === 0 && categoryFiltered.length > 0 && selectedResIds.size > 0 && (
         <div className="text-steel-500 text-sm p-6 text-center border border-steel-700 rounded-xl">
           {t('no_resources_match')}
         </div>
       )}
+
       {filtered.map(({ res, load, peak, overloaded }) => {
         const dayCount = load.length
         const barW = Math.max(4, Math.min(20, 800 / Math.max(dayCount, 1)))
@@ -216,13 +237,21 @@ export default function ResourceChart({ resources, resourceLoad, startDate }: Pr
                         style={{ height: h }}
                         className={`rounded-t transition-all ${over ? 'bg-rose-500/80' : v > 0 ? 'bg-steel-500/80' : 'bg-steel-800'}`}
                       />
-                      {v > 0 && (
-                        <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:block z-20 pointer-events-none">
-                          <div className="bg-steel-800 border border-steel-600 rounded px-2 py-1 text-[10px] font-mono text-steel-200 whitespace-nowrap shadow-lg">
-                            {label}<br />{v.toFixed(1)}/{res.max_units}
+                      {v > 0 && (() => {
+                        const dayActs = (actsByResource.get(res.id) || []).filter(a => i >= Math.floor(a.es) && i < Math.ceil(a.ef))
+                        return (
+                          <div className="absolute bottom-full mb-1 left-0 hidden group-hover:block z-20 pointer-events-none" style={{ minWidth: 160, maxWidth: 280 }}>
+                            <div className="bg-steel-800 border border-steel-600 rounded px-2 py-1.5 text-[10px] font-mono text-steel-200 shadow-lg">
+                              <div className="font-semibold text-amber-400 mb-1 whitespace-nowrap">{label} · {v.toFixed(1)}/{res.max_units}</div>
+                              {dayActs.map(a => (
+                                <div key={a.id} className="text-steel-300 truncate">
+                                  <span className="text-steel-500 mr-1">{a.id}</span>{a.name}
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )
+                      })()}
                     </div>
                   )
                 })}
