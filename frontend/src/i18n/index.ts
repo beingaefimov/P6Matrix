@@ -36,6 +36,15 @@ const resources = {
       drop_to_link_hint: 'Release on another bar to create FS link', shift: 'Shift', new_start: 'New start',
       completed_badge: 'DONE', tab_assignments: 'Assignments', no_assignments: 'No assignments',
       search_resource: 'Search resource…',
+      add_activity: 'Add activity',
+      confirm_delete_title: 'Delete activity?',
+      confirm_delete_body: 'This action cannot be undone:',
+      cancel: 'Cancel',
+      delete: 'Delete',
+      move_up: 'Move up',
+      move_down: 'Move down',
+      move_left: 'Outdent',
+      move_right: 'Indent',
     }
   },
   ru: {
@@ -69,7 +78,17 @@ const resources = {
       filter_all: 'Все ресурсы', filter_overloaded: 'Перегруженные', filter_underloaded: 'Недогруженные',
       no_resources_match: 'Нет ресурсов, подходящих под фильтр', create_relation: 'Создать связь',
       drop_to_link_hint: 'Отпустите на другой задаче для создания FS-связи', shift: 'Сдвиг', new_start: 'Новое начало',
-      completed_badge: 'Заверш', tab_assignments: 'Назначения', no_assignments: 'Нет назначений', search_resource: 'Поиск ресурса…',
+      completed_badge: 'Заверш', tab_assignments: 'Назначения', no_assignments: 'Нет назначений',
+      search_resource: 'Поиск ресурса…',
+      add_activity: 'Добавить работу',
+      confirm_delete_title: 'Удалить работу?',
+      confirm_delete_body: 'Это действие нельзя отменить:',
+      cancel: 'Отмена',
+      delete: 'Удалить',
+      move_up: 'Переместить вверх',
+      move_down: 'Переместить вниз',
+      move_left: 'Сдвинуть влево (повысить)',
+      move_right: 'Сдвинуть вправо (понизить)',
     }
   }
 }

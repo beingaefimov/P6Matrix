@@ -21,7 +21,7 @@ import AssignmentsTab from './components/AssignmentsTab'
 import ProjectStats from './components/ProjectStats'
 import ActivityDetailPanel from './components/ActivityDetailPanel'
 import { useScheduler } from './engine/useScheduler'
-import { pxpParseLockedIds, pxpParseCompletedIds } from './utils/pxpMutations'
+import { pxpParseLockedIds, pxpParseCompletedIds, pxpGetAllRelations } from './utils/pxpMutations'
 import type { ActivityDetail } from './utils/api'
 
 type Tab = 'gantt' | 'table' | 'resources' | 'assignments' | 'pxp'
@@ -38,9 +38,13 @@ export default function App() {
     addRelation,
     updateActivityField,
     applyPxpText,
+    addActivity,
+    removeActivity,
+    reorderActivity,
     fetchDetail,
     getPxpText,
   } = useScheduler()
+
   const { project, loading, gpuActive, error, warnings } = state
   const [activeTab, setActiveTab] = useState<Tab>('gantt')
   const [levelWithinFloat, setLevelWithinFloat] = useState(true)
@@ -50,7 +54,6 @@ export default function App() {
   // Детали задачи подгружаются лениво при клике
   const [detailData, setDetailData] = useState<ActivityDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
-  // Derived sets из pxp_text
   const pxpText = project?.pxp_text ?? ''
   const lockedIds = useMemo(() => pxpParseLockedIds(pxpText), [pxpText])
   const completedIds = useMemo(() => pxpParseCompletedIds(pxpText), [pxpText])
@@ -143,10 +146,15 @@ export default function App() {
       updateActivityField(actId, 6, String(Math.round(act.es_days)))
       setHardStarts(prev => { const n = new Set(prev); n.add(actId); return n })
     } else {
-      updateActivityField(actId, 6, '')
+      // Если у работы нет связей - при снятии жёсткого старта ставим ES=0 (начало проекта)
+      // иначе без constraint_es и без связей работа зависнет на месте
+      const rels = pxpGetAllRelations(pxpText)
+      const hasPreds = rels.some(r => r.succ === actId)
+      const newConstraint = hasPreds ? '' : '0'
+      updateActivityField(actId, 6, newConstraint)
       setHardStarts(prev => { const n = new Set(prev); n.delete(actId); return n })
     }
-  }, [project, updateActivityField])
+  }, [project, updateActivityField, pxpText])
 
   const downloadPxp = useCallback(() => {
     const text = getPxpText()
@@ -317,6 +325,11 @@ export default function App() {
                   activities={project.activities}
                   hardStarts={hardStarts}
                   completedIds={completedIds}
+                  selectedActivityId={selectedActivityId}
+                  onSelectActivity={setSelectedActivityId}
+                  onAddActivity={addActivity}
+                  onRemoveActivity={removeActivity}
+                  onMoveActivity={reorderActivity}
                 />
               )}
 

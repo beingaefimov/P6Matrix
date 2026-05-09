@@ -21,6 +21,9 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
   const [selectedResIds, setSelectedResIds] = useState<Set<string>>(new Set())
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropRef = useRef<HTMLDivElement>(null)
+  const [tooltip, setTooltip] = useState<{
+    x: number; y: number; label: string; load: string; acts: Array<{id:string;name:string}>
+  } | null>(null)
 
   useEffect(() => {
     if (!dropdownOpen) return
@@ -222,36 +225,22 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
                 }
               </div>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" style={{ overflowY: 'visible' }}>
               <div className="flex items-end gap-px" style={{ minHeight: 80 }}>
                 {load.map((v, i) => {
                   const pct = res.max_units > 0 ? v / res.max_units : 0
                   const h = Math.max(2, Math.min(76, pct * 76))
                   const over = v > res.max_units
+                  if (v === 0) return <div key={i} className="flex-shrink-0 bg-steel-800 rounded-t" style={{ width: barW, height: 2 }} />
                   const sd = new Date(startDate)
                   sd.setDate(sd.getDate() + i)
                   const label = sd.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })
+                  const dayActs = (actsByResource.get(res.id) || []).filter(a => i >= Math.floor(a.es) && i < Math.ceil(a.ef))
                   return (
-                    <div key={i} className="relative group flex-shrink-0" style={{ width: barW }}>
-                      <div
-                        style={{ height: h }}
-                        className={`rounded-t transition-all ${over ? 'bg-rose-500/80' : v > 0 ? 'bg-steel-500/80' : 'bg-steel-800'}`}
-                      />
-                      {v > 0 && (() => {
-                        const dayActs = (actsByResource.get(res.id) || []).filter(a => i >= Math.floor(a.es) && i < Math.ceil(a.ef))
-                        return (
-                          <div className="absolute bottom-full mb-1 left-0 hidden group-hover:block z-20 pointer-events-none" style={{ minWidth: 160, maxWidth: 280 }}>
-                            <div className="bg-steel-800 border border-steel-600 rounded px-2 py-1.5 text-[10px] font-mono text-steel-200 shadow-lg">
-                              <div className="font-semibold text-amber-400 mb-1 whitespace-nowrap">{label} · {v.toFixed(1)}/{res.max_units}</div>
-                              {dayActs.map(a => (
-                                <div key={a.id} className="text-steel-300 truncate">
-                                  <span className="text-steel-500 mr-1">{a.id}</span>{a.name}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      })()}
+                    <div key={i} className="flex-shrink-0 cursor-default" style={{ width: barW }}
+                      onMouseMove={e => setTooltip({ x: e.clientX, y: e.clientY, label, load: `${v.toFixed(1)}/${res.max_units}`, acts: dayActs })}
+                      onMouseLeave={() => setTooltip(null)}>
+                      <div style={{ height: h }} className={`rounded-t ${over ? 'bg-rose-500/80' : 'bg-steel-500/80'}`} />
                     </div>
                   )
                 })}
@@ -261,6 +250,19 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
           </div>
         )
       })}
+      {tooltip && (
+        <div className="fixed z-50 pointer-events-none"
+          style={{ left: tooltip.x + 14, top: tooltip.y - 8 }}>
+          <div className="bg-steel-900 border border-steel-600 rounded px-2 py-1.5 text-[10px] font-mono text-steel-200 shadow-xl" style={{ minWidth: 160, maxWidth: 280 }}>
+            <div className="font-semibold text-amber-400 mb-1 whitespace-nowrap">{tooltip.label} · {tooltip.load}</div>
+            {tooltip.acts.map(a => (
+              <div key={a.id} className="text-steel-300 truncate">
+                <span className="text-steel-500 mr-1">{a.id}</span>{a.name}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
