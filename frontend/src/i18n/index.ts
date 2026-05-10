@@ -45,6 +45,9 @@ const resources = {
       move_down: 'Move down',
       move_left: 'Outdent',
       move_right: 'Indent',
+      btn_share: 'MCP AI',
+      rename_activity: 'Rename activity',
+      save: 'Save',      
     }
   },
   ru: {
@@ -89,6 +92,9 @@ const resources = {
       move_down: 'Переместить вниз',
       move_left: 'Сдвинуть влево (повысить)',
       move_right: 'Сдвинуть вправо (понизить)',
+      btn_share: 'MCP AI',
+      rename_activity: 'Переименовать работу',
+      save: 'Сохранить',      
     }
   }
 }

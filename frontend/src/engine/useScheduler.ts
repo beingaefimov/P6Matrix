@@ -455,6 +455,17 @@ export function useScheduler() {
     _apply(updated, result, pxpTextRef.current, [])
   }, [_run, _apply])
 
+  const renameActivity = useCallback(async (actId: string, newName: string) => {
+    pxpTextRef.current = pxpSetActivityField(pxpTextRef.current, actId, 1, newName)
+    activitiesRef.current = activitiesRef.current.map(a =>
+      a.id === actId ? { ...a, name: newName } : a
+    )
+    setState(s => ({ ...s, loading: true }))
+    const result = await _run(activitiesRef.current)
+    if (!result) return
+    _apply(activitiesRef.current, result, pxpTextRef.current, [])
+  }, [_run, _apply])
+
   const fetchDetail = useCallback(async (actId: string) => {
     return fetchActivityDetail(pxpTextRef.current, actId)
   }, [])
@@ -463,6 +474,7 @@ export function useScheduler() {
 
   return {
     state, loadFile, recalculate, levelResourcesAction,
+    renameActivity,
     moveActivity, addRelation, updateActivityField, applyPxpText,
     addActivity, removeActivity, reorderActivity,
     fetchDetail, getPxpText,

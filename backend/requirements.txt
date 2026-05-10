@@ -3,3 +3,5 @@ uvicorn[standard]>=0.29.0
 python-multipart>=0.0.9
 numpy>=1.26.0
 pydantic>=2.7.0
+mcp>=1.0.0
+python-keycloak>=3.9.0

@@ -9,6 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 import p6matrix_parser as parser
+import pathlib
+
+SHARED_PXP_PATH = pathlib.Path(__file__).parent / "shared.pxp"
 
 app = FastAPI(title="P6Matrix API", version="2.0.0")
 
@@ -103,3 +106,22 @@ async def save_pxp(req: SaveRequest):
         return {"ok": True, "pxp_text": req.pxp_text}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+class ShareRequest(BaseModel):
+    pxp_text: str
+
+@app.post("/share")
+async def share_project(req: ShareRequest):
+    """ Сохраняет pxp_text в shared.pxp для MCP сервера """
+    try:
+        SHARED_PXP_PATH.write_text(req.pxp_text, encoding="utf-8")
+        return {"ok": True, "path": str(SHARED_PXP_PATH)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/shared/status")
+def shared_status():
+    """ Проверяет наличие shared.pxp и его размер """
+    if SHARED_PXP_PATH.exists():
+        return {"exists": True, "size": SHARED_PXP_PATH.stat().st_size}
+    return {"exists": False}

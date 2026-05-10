@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, ChevronDown, ChevronsUpDown, Plus, Trash2, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, X } from 'lucide-react'
+import { ChevronRight, ChevronDown, ChevronsUpDown, Plus, Trash2, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, X, Pencil } from 'lucide-react'
 import type { ActivityOut } from '../types'
 import clsx from 'clsx'
 
@@ -11,6 +11,7 @@ interface Props {
   onAddActivity?: (afterId: string | null) => void
   onRemoveActivity?: (id: string) => void
   onMoveActivity?: (id: string, direction: 'up' | 'down' | 'left' | 'right') => void
+  onRenameActivity?: (id: string, newName: string) => void
   onSelectActivity?: (id: string | null) => void
   selectedActivityId?: string | null
 }
@@ -40,14 +41,52 @@ function ConfirmModal({ name, onConfirm, onCancel }: { name: string; onConfirm: 
   )
 }
 
+function EditNameModal({ name, onConfirm, onCancel }: { name: string; onConfirm: (n: string) => void; onCancel: () => void }) {
+  const { t } = useTranslation()
+  const [value, setValue] = useState(name)
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-steel-950/80 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-steel-900 border border-steel-700 rounded-2xl shadow-2xl px-6 py-5 w-96 animate-slide-in">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-semibold text-steel-200">{t('rename_activity')}</span>
+          <button onClick={onCancel} className="p-1 rounded hover:bg-steel-700 text-steel-400"><X className="w-4 h-4" /></button>
+        </div>
+        <input
+          autoFocus
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && value.trim()) onConfirm(value.trim()); if (e.key === 'Escape') onCancel() }}
+          className="w-full px-3 py-2 text-sm bg-steel-800 border border-steel-600 rounded-lg text-steel-100 focus:outline-none focus:border-amber-400/60 transition-colors mb-4"
+        />
+        <div className="flex gap-2 justify-end">
+          <button onClick={onCancel} className="px-3 py-1.5 text-xs text-steel-400 border border-steel-700 rounded-lg hover:bg-steel-800 transition-colors">{t('cancel')}</button>
+          <button onClick={() => value.trim() && onConfirm(value.trim())} className="px-3 py-1.5 text-xs text-amber-400 border border-amber-500/40 rounded-lg hover:bg-amber-400/10 transition-colors">{t('save')}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ActivityTable({
   activities, hardStarts, completedIds,
-  onAddActivity, onRemoveActivity, onMoveActivity,
+  onAddActivity, onRemoveActivity, onMoveActivity, onRenameActivity,
   onSelectActivity, selectedActivityId,
 }: Props) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
+  const [editTarget, setEditTarget] = useState<{ id: string; name: string } | null>(null)
+  const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map())
+
+  const handleRowClick = useCallback((id: string | null) => {
+    onSelectActivity?.(id)
+    // Прокручиваем строку в видимую область с учётом высоты панели свойств рааботы
+    setTimeout(() => {
+      const row = rowRefs.current.get(id ?? '')
+      if (row) row.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }, 50)
+  }, [onSelectActivity])
 
   const { rows, hasHierarchy } = useMemo(() => {
     const byId = new Map<string, ActivityOut>()
@@ -87,6 +126,13 @@ export default function ActivityTable({
           onCancel={() => setDeleteTarget(null)}
         />
       )}
+      {editTarget && (
+        <EditNameModal
+          name={editTarget.name}
+          onConfirm={newName => { onRenameActivity?.(editTarget.id, newName); setEditTarget(null) }}
+          onCancel={() => setEditTarget(null)}
+        />
+      )}
       {hasHierarchy && (
         <button onClick={toggleAll}
           className={clsx('flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg border transition-colors',
@@ -115,7 +161,8 @@ export default function ActivityTable({
 
               return (
                 <tr key={`${a.id}-${i}`}
-                  onClick={() => onSelectActivity?.(isSelected ? null : a.id)}
+                  ref={el => { if (el) rowRefs.current.set(a.id, el); else rowRefs.current.delete(a.id) }}
+                  onClick={() => handleRowClick(isSelected ? null : a.id)}
                   className={clsx(
                     'border-b border-steel-800 transition-colors cursor-pointer',
                     isSelected ? 'bg-amber-400/5 border-l-2 border-l-amber-400' : i % 2 === 0 ? 'bg-steel-950 hover:bg-steel-800/30' : 'bg-steel-900/30 hover:bg-steel-800/30',
@@ -145,6 +192,10 @@ export default function ActivityTable({
                       {/* Кнопки действий - показываем только для выбранной строки */}
                       {isSelected && (
                         <div className="flex items-center gap-0.5 flex-shrink-0 ml-2" onClick={e => e.stopPropagation()}>
+                          <button onClick={e => { e.stopPropagation(); setEditTarget({ id: a.id, name: a.name }) }} title={t('rename_activity')}
+                            className="p-1 rounded hover:bg-amber-400/20 text-steel-500 hover:text-amber-400 transition-colors">
+                            <Pencil className="w-3 h-3" />
+                          </button>
                           <button onClick={() => onAddActivity?.(a.id)} title={t('add_activity')}
                             className="p-1 rounded hover:bg-emerald-500/20 text-steel-500 hover:text-emerald-400 transition-colors">
                             <Plus className="w-3.5 h-3.5" />

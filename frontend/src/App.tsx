@@ -7,11 +7,11 @@
 //                                                     ↓
 //                                               Гант реагирует мгновенно
 // Клик на задачу - POST /activity/detail - только одна запись (lazy)
-// Скачать PXP    - Blob URL, без бэкенда вообще
+// Скачать PXP - Blob URL, без бэкенда
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Download, RefreshCw, Layers, Globe } from 'lucide-react'
+import { AlertTriangle, Download, RefreshCw, Layers, Globe, Share2 } from 'lucide-react'
 import clsx from 'clsx'
 import UploadZone from './components/UploadZone'
 import GanttChart from './components/GanttChart'
@@ -41,6 +41,7 @@ export default function App() {
     addActivity,
     removeActivity,
     reorderActivity,
+    renameActivity,
     fetchDetail,
     getPxpText,
   } = useScheduler()
@@ -156,6 +157,49 @@ export default function App() {
     }
   }, [project, updateActivityField, pxpText])
 
+  const [shareStatus, setShareStatus] = useState<'idle' | 'sharing' | 'ok' | 'err'>('idle')
+  const selectedActivityDisplay = selectedActivityId && project
+    ? project.activities.find(a => a.id === selectedActivityId) ?? null
+    : null
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'gantt', label: t('tab_gantt') },
+    { id: 'table', label: t('tab_table') },
+    { id: 'resources', label: t('tab_resources') },
+    { id: 'assignments', label: t('tab_assignments') },
+    { id: 'pxp', label: t('tab_pxp') },
+  ]  
+
+  // Когда панель деталей открыта - добавляем scroll-padding-bottom на html
+  // чтобы якорные прокрутки и клавиатурная навигация учитывали высоту панели
+  useEffect(() => {
+    const root = document.documentElement
+    if (selectedActivityDisplay) {
+      root.style.scrollPaddingBottom = 'calc(52vh + 2rem)'
+    } else {
+      root.style.scrollPaddingBottom = ''
+    }
+    return () => { root.style.scrollPaddingBottom = '' }
+  }, [selectedActivityDisplay])
+
+  const shareProject = useCallback(async () => {
+    const text = getPxpText()
+    if (!text) return
+    setShareStatus('sharing')
+    try {
+      await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pxp_text: text }),
+      })
+      setShareStatus('ok')
+      setTimeout(() => setShareStatus('idle'), 2500)
+    } catch {
+      setShareStatus('err')
+      setTimeout(() => setShareStatus('idle'), 3000)
+    }
+  }, [getPxpText])
+
   const downloadPxp = useCallback(() => {
     const text = getPxpText()
     if (!text) return
@@ -170,18 +214,6 @@ export default function App() {
 
   // Панель деталей работает с pxpMutations через updateActivityField,
   // но для assignments/relations нужен доступ к полным данным из detailData
-
-  const selectedActivityDisplay = selectedActivityId && project
-    ? project.activities.find(a => a.id === selectedActivityId) ?? null
-    : null
-
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'gantt', label: t('tab_gantt') },
-    { id: 'table', label: t('tab_table') },
-    { id: 'resources', label: t('tab_resources') },
-    { id: 'assignments', label: t('tab_assignments') },
-    { id: 'pxp', label: t('tab_pxp') },
-  ]
 
   return (
     <div className="min-h-screen bg-steel-950 text-steel-200 font-sans">
@@ -228,6 +260,12 @@ export default function App() {
               <button onClick={downloadPxp} className="btn-secondary flex items-center gap-1.5">
                 <Download className="w-3.5 h-3.5" />{t('btn_download_pxp')}
               </button>
+              <button onClick={shareProject} disabled={loading || shareStatus === 'sharing'}
+                className={`btn-secondary flex items-center gap-1.5 ${shareStatus === 'ok' ? 'text-emerald-400 border-emerald-500/40' : shareStatus === 'err' ? 'text-rose-400 border-rose-500/40' : ''}`}
+                title={t('btn_share')}>
+                <Share2 className="w-3.5 h-3.5" />
+                {shareStatus === 'sharing' ? '…' : shareStatus === 'ok' ? '✓' : shareStatus === 'err' ? '✗' : t('btn_share')}
+              </button>
             </>)}
             <button onClick={toggleLang} className="btn-secondary flex items-center gap-1.5 ml-2">
               <Globe className="w-3.5 h-3.5" />{t('lang_switch')}
@@ -237,7 +275,7 @@ export default function App() {
       </header>
 
       {/* Main */}
-      <main className="mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <main className="mx-auto px-4 sm:px-6 py-6 space-y-6" style={{ paddingBottom: selectedActivityDisplay ? "calc(52vh + 2rem)" : undefined }}>
         {!project && <UploadZone onFile={handleFile} loading={loading} />}
 
         {error && (
@@ -330,6 +368,7 @@ export default function App() {
                   onAddActivity={addActivity}
                   onRemoveActivity={removeActivity}
                   onMoveActivity={reorderActivity}
+                  onRenameActivity={renameActivity}
                 />
               )}
 
