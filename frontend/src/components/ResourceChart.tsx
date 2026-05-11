@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { createPortal } from 'react-dom'
 import { Filter, ChevronDown, Check, Plus, X, Trash2, Pencil } from 'lucide-react'
 import type { ResourceOut } from '../types'
 import type { ActivityDisplay } from '../engine/useScheduler'
@@ -304,7 +305,7 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
       )}
 
       {/* Модалка создания ресурса */}
-      {showNewResModal && onAddResource && (
+      {showNewResModal && onAddResource && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-steel-950/80 backdrop-blur-sm" onClick={() => setShowNewResModal(false)} />
           <div className="relative bg-steel-900 border border-steel-700 rounded-2xl shadow-2xl px-6 py-5 w-96 animate-slide-in">
@@ -346,11 +347,12 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
                 className="px-3 py-1.5 text-xs text-emerald-400 border border-emerald-500/40 rounded-lg hover:bg-emerald-400/10 transition-colors">{t('create')}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Модалка редактирования ресурса */}
-      {editResTarget && onUpdateResource && (
+      {editResTarget && onUpdateResource && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-steel-950/80 backdrop-blur-sm" onClick={() => setEditResTarget(null)} />
           <div className="relative bg-steel-900 border border-steel-700 rounded-2xl shadow-2xl px-6 py-5 w-96 animate-slide-in">
@@ -388,11 +390,12 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
                 className="px-3 py-1.5 text-xs text-emerald-400 border border-emerald-500/40 rounded-lg hover:bg-emerald-400/10 transition-colors">{t('save')}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Модалка подтверждения удаления ресурса */}
-      {deleteResTarget && onRemoveResource && (
+      {deleteResTarget && onRemoveResource && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-steel-950/80 backdrop-blur-sm" onClick={() => setDeleteResTarget(null)} />
           <div className="relative bg-steel-900 border border-steel-700 rounded-2xl shadow-2xl px-6 py-5 w-80 animate-slide-in">
@@ -412,7 +415,8 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
                 className="px-3 py-1.5 text-xs text-rose-400 border border-rose-500/40 rounded-lg hover:bg-rose-500/10 transition-colors">{t('delete')}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

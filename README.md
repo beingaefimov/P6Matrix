@@ -29,21 +29,12 @@ cd backend
 
 # Создать виртуальное окружение / Create virtual environment
 python3 -m venv .venv
-source .venv/bin/activate   # Linux/macOS
+source .venv/bin/activate # Linux/macOS
 # или / or
-.venv\Scripts\activate  # Windows
+.venv\Scripts\activate # Windows
 
 pip install -r requirements.txt
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Зависимости (`requirements.txt`):
-```
-fastapi>=0.111.0
-uvicorn[standard]>=0.29.0
-python-multipart>=0.0.9
-numpy>=1.26.0
-pydantic>=2.7.0
 ```
 
 API будет доступен по адресу: **http://localhost:8000** / API available at
@@ -100,23 +91,24 @@ npm run build
 | Двойной щелчок по названию работы / Double-click on activity name | Прокрутка графика / Scroll chart |
 | Двойной щелчок по шкале времени / Double-click on timeline | График полностью вписывается в экран / Chart fits entire screen |
 | Однократный щелчок по названию работы / Single click on activity name | Таблица свойств работы под графиком / Activity properties table below chart |
-| **Ctrl + Клик по работе / Ctrl + Click on activity** | **Множественный выбор работ (подсветка оранжевым) / Multi-select activities (orange highlight)** |
+| Ctrl + Клик по работе / Ctrl + Click on activity | Множественный выбор работ (подсветка оранжевым) / Multi-select activities (orange highlight) |
 | Перетаскивание полосы / Drag bar | Сдвиг работы (установка ограничения ES) / Shift activity (set ES constraint) |
 | Перетаскивание границы колонки / Drag column border | Изменение ширины колонки названий / Change name column width |
 | Перетаскивание по шкале времени / Drag on timeline | Зум графика / Zoom chart |
 | Перетаскивание внутри диаграммы, но не на работе / Drag inside diagram but not on activity | Перемещение графика / Pan chart |
 | Перетаскивание работы на другую работу / Drag activity on activity | Создание связи FS / Create FS link |
+- работы добавляются в таблице работ / activities are added in the Activity Table
+- ресурсы добавляются и редактируются на закладке Ресурсы / resources are added and edited on the Resources tab
 
 ### Кнопки панели
 
 | Кнопка | Действие |
 |--------|----------|
-| Пересчитать | Forward pass + backward pass (CPM) |
-| Выровнять ресурсы | CPM + эвристическое выравнивание |
-| Скачать PXP | Сохранить текущий план в `.pxp` |
-| **edraw** | **Экспорт выбранных работ в Excalidraw** / **Export selected activities to Excalidraw** |
-| **MCP AI** | **Сохранить сессию для AI (MCP) / Share session for AI (MCP)** |
-| RU / EN | Переключить язык интерфейса |
+| Пересчитать / Recalculate | Принудительный запуск CPM / Force CPM recalculation |
+| Выровнять ресурсы / Level Resources | CPM + Эвристическое выравнивание ресурсов / Heuristic resource leveling |
+| Скачать PXP / Download PXP | Сохранить текущий план в .pxp / Save current plan to .pxp |
+| edraw | Экспорт выбранных работ в Excalidraw / Export selected activities to Excalidraw |
+| MCP AI | Сохранить сессию для AI (MCP) / Share session for AI (MCP) |
 
 ### Галочка Только в пределах резерва / Level within float only Checkbox
 
@@ -133,33 +125,46 @@ In practice: if overloads remain after leveling with the checkbox on, it means t
 ## Экспорт в Excalidraw / Excalidraw Export
 
 Позволяет создать скетч расписания для вставки в заметки или презентации.
+
 Allows you to create a schedule sketch for inserting into notes or presentations.
 
 1. Удерживайте `Ctrl` и кликните на работы на диаграмме Ганта. Они выделятся оранжевым контуром. / Hold `Ctrl` and click on activities in the Gantt chart. They will be highlighted with an orange border.
 2. Нажмите кнопку **edraw**. / Click the **edraw** button.
-3. Скачается файл `.excalidraw`. / A `.excalidraw` file will be downloaded.
+3. Скачается файл `.excalidraw`. / File `.excalidraw` will be downloaded.
 
 ![Excalidraw Export Screenshot](screenshots/excalidraw_export.png)
 
-Работы (до 20 шт) превращаются в карточки с названием и датами. / Activities (up to 20) turn into cards with names and dates.
+Работы (до 20 шт) превращаются в карточки с названием и датами / Activities (up to 20) turn into cards with names and dates
 
 ---
 
 ## Интеграция с AI (MCP) / AI Integration (MCP)
 
 Интеграция с Claude и другими AI через Model Context Protocol.
+
 Integration with Claude and other AI via Model Context Protocol.
 
-1. Нажмите кнопку **MCP AI** в интерфейсе. / Click the **MCP AI** button in the UI.
+1. Нажмите кнопку **MCP AI**. / Click the **MCP AI** button.
 2. Текущее расписание сохранится в `backend/shared.pxp`. / The current schedule is saved to `backend/shared.pxp`.
-3. MCP-сервер (порт 3201) предоставит AI доступ к данным проекта. / The MCP server (port 3201) will provide AI access to project data.
+3. MCP-сервер (порт 3201) предоставит AI доступ к данным проекта / The MCP server (port 3201) will provide AI access to project data
 
 ![MCP Inspector Screenshot](screenshots/mcp_inspector.png)
 
 **Доступные инструменты / Available Tools:**
-- `get_schedule_summary`: Сводка по проекту / Project summary.
-- `get_critical_path`: Критический путь / Critical path.
-- `check_schedule_quality`: Проверка качества DCMA / DCMA quality check.
+
+*   `get_general_data`: Общие данные: мета проекта, количество работ, разбивка по статусам / General data: project meta, counts, status breakdown.
+*   `get_schedule_summary`: Сводка по проекту: даты, количество завершённых/в работе / At-a-glance stats: dates, completed/in-progress counts.
+*   `get_project_activities`: Список работ с фильтрами (статус, тип, название) / Activities list with filters (status, type, name).
+*   `get_critical_path`: Критический путь (работы с TF=0) / Critical path activities (TF=0).
+*   `get_resources`: Список ресурсов и их лимиты / Resources list and limits.
+*   `get_resource_assignments`: Назначения ресурсов на работы / Resource-activity assignments.
+*   `analyze_resource_utilization`: Анализ загрузки ресурсов (пики, перегрузки) / Resource utilization analysis (peaks, overloads).
+*   `check_schedule_quality`: DCMA-проверки качества расписания (отсутствие связей, длинные работы) / DCMA-style schedule quality checks.
+*   `get_wbs`: Иерархическая структура работ (WBS) / Work Breakdown Structure.
+*   `get_relationships`: Связи между работами (предшественники/последователи) / Activity relationships (pred/succ).
+*   `get_calendars`: Определения календарей (дни недели, часы) / Calendar definitions.
+*   `get_earned_value`: Показатели освоенного объёма (EVM): BAC, PV, EV, AC, CPI, SPI, EAC / Earned Value Management metrics.
+*   `get_activity_detail`: Полная детализация одной работы (поля, связи, назначения) / Full detail for a single activity.
 
 ---
 
