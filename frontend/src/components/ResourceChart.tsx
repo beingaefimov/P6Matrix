@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Filter, ChevronDown, Check } from 'lucide-react'
+import { Filter, ChevronDown, Check, Plus, X, Trash2, Pencil } from 'lucide-react'
 import type { ResourceOut } from '../types'
 import type { ActivityDisplay } from '../engine/useScheduler'
 import type { Assignment } from '../engine/cpmEngine'
@@ -13,17 +13,35 @@ interface Props {
   startDate: string
   activities?: ActivityDisplay[]
   assignments?: Assignment[]
+  onAddResource?: (resId: string, name: string, maxUnits: number, costPerUnit: number) => void
+  onRemoveResource?: (resId: string) => void
+  onUpdateResource?: (resId: string, name: string, maxUnits: number, costPerUnit: number) => void
 }
 
-export default function ResourceChart({ resources, resourceLoad, startDate, activities = [], assignments = [] }: Props) {
+export default function ResourceChart({ resources, resourceLoad, startDate, activities = [], assignments = [], onAddResource, onRemoveResource, onUpdateResource }: Props) {
   const { t } = useTranslation()
   const [filter, setFilter] = useState<FilterMode>('all')
   const [selectedResIds, setSelectedResIds] = useState<Set<string>>(new Set())
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [showNewResModal, setShowNewResModal] = useState(false)
+  const [newResId, setNewResId] = useState('R' + String(Date.now()).slice(-5))
+  const [newResName, setNewResName] = useState('')
+  const [newResMax, setNewResMax] = useState('1')
+  const [newResCost, setNewResCost] = useState('0')
+  const [deleteResTarget, setDeleteResTarget] = useState<{ id: string; name: string } | null>(null)
+  const [editResTarget, setEditResTarget] = useState<{ id: string; name: string; maxUnits: string; costPerUnit: string } | null>(null)
   const dropRef = useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = useState<{
     x: number; y: number; label: string; load: string; acts: Array<{id:string;name:string}>
   } | null>(null)
+
+  const openNewResModal = () => {
+    setNewResId('R' + String(Date.now()).slice(-5))
+    setNewResName('')
+    setNewResMax('1')
+    setNewResCost('0')
+    setShowNewResModal(true)
+  }
 
   useEffect(() => {
     if (!dropdownOpen) return
@@ -72,10 +90,6 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
     return m
   }, [resources, assignments, activities])
 
-  if (resources.length === 0) {
-    return <div className="text-steel-500 text-sm p-8 text-center">{t('no_project')}</div>
-  }
-
   const counts = {
     all: resourceStatus.length,
     overloaded: resourceStatus.filter(r => r.overloaded).length,
@@ -96,7 +110,6 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
     })
   }
 
-  // Сбрасываем выбор ресурсов при смене фильтра если выбранные не входят в новую категорию
   const handleFilterChange = (newFilter: FilterMode) => {
     setFilter(newFilter)
     setSelectedResIds(new Set())
@@ -127,7 +140,15 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
           ))}
         </div>
 
-        {/* Выпадающий список - скрываем если по текущему фильтру нет ресурсов */}
+        {/* Кнопка добавления ресурса */}
+        {onAddResource && (
+          <button onClick={openNewResModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg border border-emerald-500/40 bg-emerald-400/10 text-emerald-400 hover:bg-emerald-400/20 transition-colors">
+            <Plus className="w-3 h-3" />{t('btn_new_resource')}
+          </button>
+        )}
+
+        {/* Выпадающий список */}
         {categoryFiltered.length > 0 && (
           <div className="relative" ref={dropRef}>
             <button
@@ -163,24 +184,40 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
                   </button>
                 </div>
                 <div className="py-1">
-                  {categoryFiltered.map(({ res }) => {
+                  {categoryFiltered.map(({ res, overloaded }) => {
                     const isSelected = selectedResIds.has(res.id)
                     return (
-                      <button
-                        key={res.id}
-                        onClick={() => toggleRes(res.id)}
-                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors ${
-                          isSelected ? 'bg-emerald-400/10 text-emerald-300' : 'text-steel-300 hover:bg-steel-800'
-                        }`}
-                      >
+                      <div key={res.id} onClick={() => toggleRes(res.id)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && toggleRes(res.id)}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors cursor-pointer ${isSelected ? 'bg-emerald-400/10 text-emerald-300' : 'text-steel-300 hover:bg-steel-800'}`}>
                         <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
                           isSelected ? 'bg-emerald-400/20 border-emerald-400/60' : 'border-steel-600'
                         }`}>
                           {isSelected && <Check className="w-2.5 h-2.5 text-emerald-400" />}
                         </span>
-                        <span className="font-mono text-steel-500">{res.id}</span>
+                        <span className="font-mono text-steel-500 flex-shrink-0">{res.id}</span>
                         <span className="truncate">{res.name}</span>
-                      </button>
+                        {overloaded && <span className="flex-shrink-0 px-1 py-0.5 bg-rose-500/20 text-rose-400 rounded text-[9px] font-semibold">!</span>}
+                        <div className="flex items-center gap-0.5 ml-auto flex-shrink-0">
+                          {onUpdateResource && (
+                            <button
+                              onClick={e => { e.stopPropagation(); setEditResTarget({ id: res.id, name: res.name, maxUnits: String(res.max_units), costPerUnit: String(res.cost_per_unit ?? 0) }) }}
+                              className="p-0.5 rounded hover:bg-emerald-500/20 text-steel-600 hover:text-emerald-400 transition-colors"
+                              title={t('rename_activity')}
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          )}
+                          {onRemoveResource && (
+                            <button
+                              onClick={e => { e.stopPropagation(); setDeleteResTarget({ id: res.id, name: res.name }) }}
+                              className="p-0.5 rounded hover:bg-rose-500/20 text-steel-600 hover:text-rose-400 transition-colors"
+                              title={t('delete')}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     )
                   })}
                 </div>
@@ -190,18 +227,19 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
         )}
       </div>
 
-      {categoryFiltered.length === 0 && (
+      {/* Нет ресурсов */}
+      {!resources.length && (
+        <div className="text-steel-500 text-sm p-8 text-center">{t('no_project')}</div>
+      )}
+
+      {/* Нет подходящих под фильтр */}
+      {resources.length > 0 && filtered.length === 0 && (
         <div className="text-steel-500 text-sm p-6 text-center border border-steel-700 rounded-xl">
           {t('no_resources_match')}
         </div>
       )}
 
-      {filtered.length === 0 && categoryFiltered.length > 0 && selectedResIds.size > 0 && (
-        <div className="text-steel-500 text-sm p-6 text-center border border-steel-700 rounded-xl">
-          {t('no_resources_match')}
-        </div>
-      )}
-
+      {/* Список ресурсов */}
       {filtered.map(({ res, load, peak, overloaded }) => {
         const dayCount = load.length
         const barW = Math.max(4, Math.min(20, 800 / Math.max(dayCount, 1)))
@@ -221,8 +259,7 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
                 </span>
                 {overloaded
                   ? <span className="px-2 py-0.5 bg-rose-500/20 text-rose-400 rounded text-[10px] font-sans font-semibold">{t('overloaded')}</span>
-                  : load.length > 0 && <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[10px] font-sans font-semibold">{t('ok')}</span>
-                }
+                  : load.length > 0 && <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[10px] font-sans font-semibold">{t('ok')}</span>}
               </div>
             </div>
             <div className="overflow-x-auto" style={{ overflowY: 'visible' }}>
@@ -250,6 +287,8 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
           </div>
         )
       })}
+
+      {/* Тултип */}
       {tooltip && (
         <div className="fixed z-50 pointer-events-none"
           style={{ left: tooltip.x + 14, top: tooltip.y - 8 }}>
@@ -260,6 +299,118 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
                 <span className="text-steel-500 mr-1">{a.id}</span>{a.name}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Модалка создания ресурса */}
+      {showNewResModal && onAddResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-steel-950/80 backdrop-blur-sm" onClick={() => setShowNewResModal(false)} />
+          <div className="relative bg-steel-900 border border-steel-700 rounded-2xl shadow-2xl px-6 py-5 w-96 animate-slide-in">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-semibold text-steel-200">{t('new_resource_title')}</span>
+              <button onClick={() => setShowNewResModal(false)} className="p-1 rounded hover:bg-steel-700 text-steel-400"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] text-steel-500 font-medium mb-1">{t('resource_id_label')}</label>
+                <input value={newResId} onChange={e => setNewResId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-steel-800 border border-steel-600 rounded-lg text-steel-100 font-mono focus:outline-none focus:border-amber-400/60 transition-colors" />
+              </div>
+              <div>
+                <label className="block text-[10px] text-steel-500 font-medium mb-1">{t('resource_name_label')}</label>
+                <input value={newResName} onChange={e => setNewResName(e.target.value)} placeholder={t('new_project_placeholder')}
+                  className="w-full px-3 py-2 text-sm bg-steel-800 border border-steel-600 rounded-lg text-steel-100 focus:outline-none focus:border-amber-400/60 transition-colors" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] text-steel-500 font-medium mb-1">{t('max_units_label')}</label>
+                  <input type="number" min={0} step={0.5} value={newResMax} onChange={e => setNewResMax(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-steel-800 border border-steel-600 rounded-lg text-steel-100 font-mono focus:outline-none focus:border-amber-400/60 transition-colors" />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-steel-500 font-medium mb-1">{t('cost_per_unit_label')}</label>
+                  <input type="number" min={0} step={0.01} value={newResCost} onChange={e => setNewResCost(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-steel-800 border border-steel-600 rounded-lg text-steel-100 font-mono focus:outline-none focus:border-amber-400/60 transition-colors" />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end mt-5">
+              <button onClick={() => setShowNewResModal(false)} className="px-3 py-1.5 text-xs text-steel-400 border border-steel-700 rounded-lg hover:bg-steel-800 transition-colors">{t('cancel')}</button>
+              <button onClick={() => {
+                if (!newResId.trim()) return
+                onAddResource(newResId.trim(), newResName.trim() || newResId.trim(), parseFloat(newResMax) || 1, parseFloat(newResCost) || 0)
+                setShowNewResModal(false)
+              }}
+                className="px-3 py-1.5 text-xs text-emerald-400 border border-emerald-500/40 rounded-lg hover:bg-emerald-400/10 transition-colors">{t('create')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка редактирования ресурса */}
+      {editResTarget && onUpdateResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-steel-950/80 backdrop-blur-sm" onClick={() => setEditResTarget(null)} />
+          <div className="relative bg-steel-900 border border-steel-700 rounded-2xl shadow-2xl px-6 py-5 w-96 animate-slide-in">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-semibold text-steel-200">{t('edit_resource_title')}</span>
+              <button onClick={() => setEditResTarget(null)} className="p-1 rounded hover:bg-steel-700 text-steel-400"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] text-steel-500 font-medium mb-1">{t('resource_name_label')}</label>
+                <input value={editResTarget.name} onChange={e => setEditResTarget(prev => prev ? { ...prev, name: e.target.value } : null)}
+                  className="w-full px-3 py-2 text-sm bg-steel-800 border border-steel-600 rounded-lg text-steel-100 focus:outline-none focus:border-amber-400/60 transition-colors" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] text-steel-500 font-medium mb-1">{t('max_units_label')}</label>
+                  <input type="number" min={0} step={0.5} value={editResTarget.maxUnits} onChange={e => setEditResTarget(prev => prev ? { ...prev, maxUnits: e.target.value } : null)}
+                    className="w-full px-3 py-2 text-sm bg-steel-800 border border-steel-600 rounded-lg text-steel-100 font-mono focus:outline-none focus:border-amber-400/60 transition-colors" />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-steel-500 font-medium mb-1">{t('cost_per_unit_label')}</label>
+                  <input type="number" min={0} step={0.01} value={editResTarget.costPerUnit} onChange={e => setEditResTarget(prev => prev ? { ...prev, costPerUnit: e.target.value } : null)}
+                    className="w-full px-3 py-2 text-sm bg-steel-800 border border-steel-600 rounded-lg text-steel-100 font-mono focus:outline-none focus:border-amber-400/60 transition-colors" />
+                </div>
+              </div>
+            </div>
+            <div className="text-[10px] text-amber-400/80 mt-3">{t('edit_resource_warning')}</div>
+            <div className="flex gap-2 justify-end mt-4">
+              <button onClick={() => setEditResTarget(null)} className="px-3 py-1.5 text-xs text-steel-400 border border-steel-700 rounded-lg hover:bg-steel-800 transition-colors">{t('cancel')}</button>
+              <button onClick={() => {
+                if (!editResTarget.name.trim()) return
+                onUpdateResource(editResTarget.id, editResTarget.name.trim(), parseFloat(editResTarget.maxUnits) || 1, parseFloat(editResTarget.costPerUnit) || 0)
+                setEditResTarget(null)
+              }}
+                className="px-3 py-1.5 text-xs text-emerald-400 border border-emerald-500/40 rounded-lg hover:bg-emerald-400/10 transition-colors">{t('save')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка подтверждения удаления ресурса */}
+      {deleteResTarget && onRemoveResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-steel-950/80 backdrop-blur-sm" onClick={() => setDeleteResTarget(null)} />
+          <div className="relative bg-steel-900 border border-steel-700 rounded-2xl shadow-2xl px-6 py-5 w-80 animate-slide-in">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold text-steel-200">{t('delete_resource_title')}</span>
+              <button onClick={() => setDeleteResTarget(null)} className="p-1 rounded hover:bg-steel-700 text-steel-400"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-xs text-steel-400 mb-4">
+              {t('delete_resource_body')}
+            </p>
+            <p className="text-xs text-steel-200 font-mono mb-4 truncate">
+              {deleteResTarget.id} — {deleteResTarget.name}
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteResTarget(null)} className="px-3 py-1.5 text-xs text-steel-400 border border-steel-700 rounded-lg hover:bg-steel-800 transition-colors">{t('cancel')}</button>
+              <button onClick={() => { onRemoveResource(deleteResTarget.id); setDeleteResTarget(null) }}
+                className="px-3 py-1.5 text-xs text-rose-400 border border-rose-500/40 rounded-lg hover:bg-rose-500/10 transition-colors">{t('delete')}</button>
+            </div>
           </div>
         </div>
       )}

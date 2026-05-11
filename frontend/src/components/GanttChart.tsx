@@ -12,6 +12,8 @@ interface Props {
   onDropRelation?: (fromId: string, toId: string) => void
   onSelectActivity?: (id: string | null) => void
   selectedActivityId?: string | null
+  selectedIds?: string[]
+  onSelectedIdsChange?: (ids: string[]) => void
   wbs?: WBSNode[]
   pxpText?: string
   showConnections?: boolean
@@ -82,7 +84,9 @@ function clsx(...args: (string | boolean | undefined | null)[]) { return args.fi
 
 export default function GanttChart({
   activities, startDate, totalDays, onActivityMove, onDropRelation,
-  onSelectActivity, selectedActivityId, wbs, pxpText,
+  onSelectActivity, selectedActivityId, 
+  selectedIds, onSelectedIdsChange,
+  wbs, pxpText,
   showConnections = true, onToggleConnections, hardStarts, completedIds, lockedIds,
 }: Props) {
   if (wbs) {}
@@ -117,10 +121,37 @@ export default function GanttChart({
   const clickStateRef = useRef<{ timer: ReturnType<typeof setTimeout>; activityId: string } | null>(null)
   useEffect(() => { return () => { if (clickStateRef.current) clearTimeout(clickStateRef.current.timer) } }, [])
 
-  const handleLabelClick = useCallback((actId: string) => {
-    if (clickStateRef.current) { clearTimeout(clickStateRef.current.timer); if (clickStateRef.current.activityId === actId) { clickStateRef.current = null; return } }
-    clickStateRef.current = { timer: setTimeout(() => { onSelectActivity?.(actId); clickStateRef.current = null }, CLICK_DELAY), activityId: actId }
-  }, [onSelectActivity])
+  const handleLabelClick = useCallback((actId: string, event: React.MouseEvent) => {
+    // Если двойной клик (таймер уже запущен для того же ID), отменяем таймер и ничего не делаем (обработается onDoubleClick)
+    if (clickStateRef.current && clickStateRef.current.activityId === actId) {
+      clearTimeout(clickStateRef.current.timer)
+      clickStateRef.current = null
+      return
+    }
+
+    clickStateRef.current = {
+      timer: setTimeout(() => {
+        const isCtrl = event.ctrlKey || event.metaKey
+        
+        if (isCtrl && onSelectedIdsChange) {
+          // Ctrl + Click: управление списком выделенных
+          const current = new Set(selectedIds || [])
+          if (current.has(actId)) {
+            current.delete(actId)
+          } else {
+            current.add(actId)
+          }
+          onSelectedIdsChange(Array.from(current))
+        } else {
+          // Обычный клик: сброс мультивыбора, выбор одного
+          if (onSelectedIdsChange) onSelectedIdsChange([actId])
+          onSelectActivity?.(actId)
+        }
+        clickStateRef.current = null
+      }, CLICK_DELAY),
+      activityId: actId
+    }
+  }, [onSelectActivity, onSelectedIdsChange, selectedIds])
 
   useEffect(() => {
     if (!resizeState) return
@@ -274,7 +305,7 @@ export default function GanttChart({
                     <ChevronsUpDown className="w-3 h-3" />{allExpanded ? t('collapse_all') : t('expand_all')}
                   </button>
                 )}
-                <label className="flex items-center gap-1 text-[10px] text-steel-500 cursor-pointer select-none whitespace-nowrap">
+                <label className="flex items-center gap-2 text-[10px] text-steel-500 cursor-pointer select-none whitespace-nowrap">
                   <input type="checkbox" checked={showConnections} onChange={onToggleConnections} className="accent-amber-400 w-3 h-3" />
                   {t('show_connections')}
                 </label>
@@ -341,6 +372,7 @@ export default function GanttChart({
             const isMilestone = act.duration === 0
             const hasChildren = (childrenMap.get(act.id)?.length || 0) > 0
             const isSelected = selectedActivityId === act.id
+            const isMultiSelected = (selectedIds?.includes(act.id) ?? false) && !isSelected
             const isHardStart = hardStarts?.has(act.id) ?? false
             const completed = completedIds?.has(act.id) ?? false
             // Заблокировано = нельзя двигать (начата или завершена)
@@ -366,10 +398,14 @@ export default function GanttChart({
             else { barFill = act.on_critical ? 'url(#critGrad)' : 'url(#normalGrad)'; barOpacity = isDragging ? 0.7 : 0.92; textOpacity = 0.9 }
             let barStroke: string; let barStrokeWidth: number
             if (isDropTarget) { barStroke = '#34d399'; barStrokeWidth = 2.5 }
-            else if (isDragging) { barStroke = 'rgba(255,255,255,0.6)'; barStrokeWidth = 1 }
-            else if (isLocked && !completed) { barStroke = '#60a5fa'; barStrokeWidth = 1.5 }
-            else if (isHardStart) { barStroke = '#fbbf24'; barStrokeWidth = 2 }
-            else { barStroke = 'none'; barStrokeWidth = 0 }
+              else if (isDragging) { barStroke = 'rgba(255,255,255,0.6)'; barStrokeWidth = 1 }
+              else if (isLocked && !completed) { barStroke = '#60a5fa'; barStrokeWidth = 1.5 }
+              // Оранжевый для мультивыбора
+              else if (isMultiSelected) { barStroke = '#f59e0b'; barStrokeWidth = 2 }
+              else if (isHardStart) { barStroke = '#fbbf24'; barStrokeWidth = 2 }
+              // Белый для одиночного выбора
+              else if (isSelected) { barStroke = '#ffffff'; barStrokeWidth = 1.5 }
+              else { barStroke = 'none'; barStrokeWidth = 0 }
             // Курсор для заблокированных работ
             const barCursor = isLocked ? 'not-allowed' : (dragWithTarget?.id === act.id ? 'grabbing' : 'grab')
             const handleBarMouseDown = (e: React.MouseEvent) => {
@@ -384,7 +420,7 @@ export default function GanttChart({
                 style={{ height: ROW_H, background: isSelected ? selectedBg : rowBg }}>
                 <div className="sticky left-0 flex items-center gap-1 px-3 border-r border-steel-700 flex-shrink-0 overflow-hidden cursor-default transition-colors self-stretch"
                   style={{ width: labelW, minWidth: labelW, zIndex: 20, background: isSelected ? selectedBg : rowBg, boxShadow: isSelected ? 'inset 0 0 0 1px rgba(251,191,36,0.3)' : undefined }}
-                  onClick={e => { if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('label')) return; handleLabelClick(act.id) }}
+                  onClick={e => { if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('label')) return; handleLabelClick(act.id, e) }}
                   onDoubleClick={e => {
                     if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('label')) return
                     e.preventDefault(); e.stopPropagation()

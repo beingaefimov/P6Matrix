@@ -238,3 +238,103 @@ export function pxpGetAssignmentsForActivity(
   }
   return result
 }
+
+/** Строит секцию @SCHEDULE_RESULTS для экспорта на MCP-сервер.
+ * Содержит все рассчитанные на фронте параметры: даты, резервы, критический путь.
+ * Эта секция не парсится фронтом */
+export function pxpBuildScheduleResults(
+  activities: Array<{
+    id: string
+    es_date: string
+    ef_date: string
+    ls_date: string
+    lf_date: string
+    tf: number
+    ff: number
+    on_critical: boolean
+    pct_complete: number
+    actual_start: string | null
+    actual_finish: string | null
+    actual_duration: number | null
+  }>
+): string {
+  const lines: string[] = ['\n@SCHEDULE_RESULTS']
+  lines.push('# act_id | es_date | ef_date | ls_date | lf_date | tf | ff | on_critical | pct_complete | actual_start | actual_finish | status')
+  for (const a of activities) {
+    // Работа считается начатой если есть actual_start или actual_duration > 0
+    const isStarted = !!(a.actual_start || (a.actual_duration != null && a.actual_duration > 0))
+
+    let status = 'not_started'
+    if (a.actual_finish || a.pct_complete >= 100) status = 'completed'
+    else if (isStarted) status = 'in_progress'
+
+    // Если работа начата но actual_start не заполнен явно - берём es_date
+    const actualStart = a.actual_start || (isStarted ? a.es_date : '')
+
+    lines.push(
+      `  ${a.id} | ${a.es_date} | ${a.ef_date} | ${a.ls_date} | ${a.lf_date} | ${a.tf} | ${a.ff} | ${a.on_critical ? '1' : '0'} | ${a.pct_complete} | ${actualStart} | ${a.actual_finish || ''} | ${status}`
+    )
+  }
+  return lines.join('\n')
+}
+
+export function pxpRemoveResource(pxp: string, resId: string): string {
+  let inSection = false
+  return pxp.split('\n').filter(line => {
+    const t = line.trim()
+    if (t === '@RESOURCES') { inSection = true; return true }
+    if (inSection && t.startsWith('@')) { inSection = false; return true }
+    if (!inSection || t.startsWith('#') || !t) return true
+    const parts = t.split('|').map(s => s.trim())
+    return parts[0] !== resId
+  }).join('\n')
+}
+
+export function pxpRemoveResourceAssignments(pxp: string, resId: string): string {
+  let inSection = false
+  return pxp.split('\n').filter(line => {
+    const t = line.trim()
+    if (t === '@ASSIGNMENTS') { inSection = true; return true }
+    if (inSection && t.startsWith('@')) { inSection = false; return true }
+    if (!inSection || t.startsWith('#') || !t) return true
+    const parts = t.split('|').map(s => s.trim())
+    return parts[1] !== resId
+  }).join('\n')
+}
+
+export function pxpUpdateResource(
+  pxp: string, resId: string, name: string, maxUnits: number, costPerUnit: number
+): string {
+  let inSection = false
+  return pxp.split('\n').map(line => {
+    const t = line.trim()
+    if (t === '@RESOURCES') { inSection = true; return line }
+    if (inSection && t.startsWith('@')) { inSection = false; return line }
+    if (!inSection || t.startsWith('#') || !t) return line
+    const parts = t.split('|').map(s => s.trim())
+    if (parts[0] !== resId) return line
+    return `  ${resId} | ${name} | ${maxUnits} | ${costPerUnit}`
+  }).join('\n')
+}
+
+export function pxpAddResource(
+  pxp: string, resId: string, name: string, maxUnits: number, costPerUnit: number
+): string {
+  const newLine = `  ${resId} | ${name} | ${maxUnits} | ${costPerUnit}`
+  const lines = pxp.split('\n')
+  const result: string[] = []
+  let inserted = false
+  for (const line of lines) {
+    result.push(line)
+    if (line.trim() === '@RESOURCES' && !inserted) {
+      inserted = true
+      result.push(newLine)
+    }
+  }
+  if (!inserted) {
+    result.push('@RESOURCES')
+    result.push('# res_id | name | max_units | cost_per_unit')
+    result.push(newLine)
+  }
+  return result.join('\n')
+}

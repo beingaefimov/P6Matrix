@@ -16,7 +16,8 @@ import {
   type Assignment, type ScheduleResult, type LevelingOptions,
 } from './cpmEngine'
 import { uploadFileRaw, fetchActivityDetail } from '../utils/api'
-import { pxpSetConstraint, pxpAddRelation, pxpSetActivityField } from '../utils/pxpMutations'
+import { pxpSetConstraint, pxpAddRelation, pxpSetActivityField, pxpAddResource,
+  pxpRemoveResource, pxpRemoveResourceAssignments, pxpUpdateResource } from '../utils/pxpMutations'
 
 export interface ActivityDisplay extends ActivityMin {
   es_days: number; ef_days: number; ls_days: number; lf_days: number
@@ -148,6 +149,46 @@ function parseActivitiesFromPxp(pxp: string, existing: Map<string, ActivityMin>)
       pct_complete: parts[10] ? parseFloat(parts[10]) : 0,
       actual_duration: parts[13] ? parseFloat(parts[13]) : null,
       remaining_duration: parts[14] ? parseFloat(parts[14]) : null,
+    })
+  }
+  return result
+}
+
+function parseMetaFromPxp(pxp: string) {
+  const meta = { project_id: '', project_name: '', start_date: '2024-01-01', data_date: '2024-01-01', must_finish: 'NULL' }
+  let inSection = false
+  for (const line of pxp.split('\n')) {
+    const t = line.trim()
+    if (t === '@META') { inSection = true; continue }
+    if (inSection && t.startsWith('@')) break
+    if (!inSection || !t || t.startsWith('#')) continue
+    if (t.includes('=')) {
+      const [k, v] = t.split('=', 2)
+      const key = k.trim()
+      const val = v.trim()
+      if (key === 'project_id' || key === 'project_name' || key === 'start_date' || key === 'data_date' || key === 'must_finish') {
+        (meta as any)[key] = val
+      }
+    }
+  }
+  return meta
+}
+
+function parseResourcesFromPxp(pxp: string): Resource[] {
+  const result: Resource[] = []
+  let inSection = false
+  for (const line of pxp.split('\n')) {
+    const t = line.trim()
+    if (t === '@RESOURCES') { inSection = true; continue }
+    if (inSection && t.startsWith('@')) break
+    if (!inSection || t.startsWith('#') || !t) continue
+    const parts = t.split('|').map(s => s.trim())
+    if (!parts[0] || !parts[1]) continue
+    result.push({
+      id: parts[0],
+      name: parts[1],
+      max_units: parseFloat(parts[2]) || 1,
+      cost_per_unit: parseFloat(parts[3]) || 0,
     })
   }
   return result
@@ -322,6 +363,7 @@ export function useScheduler() {
     const newRels = parseRelationsFromPxp(newPxp)
     const newSuccsSet = new Set(newRels.map(r => r.succ))
     relationsRef.current = newRels
+    resourcesRef.current = parseResourcesFromPxp(newPxp)
 
     const existingMap = new Map<string, ActivityMin>(activitiesRef.current.map(a => [a.id, a]))
     let activities = parseActivitiesFromPxp(newPxp, existingMap)
@@ -334,6 +376,7 @@ export function useScheduler() {
       return a
     })
     pxpTextRef.current = pxpFixed
+    metaRef.current = parseMetaFromPxp(pxpFixed)
     activitiesRef.current = activities
 
     const result = await _run(activities)
@@ -466,6 +509,37 @@ export function useScheduler() {
     _apply(activitiesRef.current, result, pxpTextRef.current, [])
   }, [_run, _apply])
 
+  const addResource = useCallback(async (resId: string, name: string, maxUnits: number, costPerUnit: number) => {
+    pxpTextRef.current = pxpAddResource(pxpTextRef.current, resId, name, maxUnits, costPerUnit)
+    resourcesRef.current = [...resourcesRef.current, { id: resId, name, max_units: maxUnits, cost_per_unit: costPerUnit }]
+    setState(s => ({ ...s, loading: true }))
+    const result = await _run(activitiesRef.current)
+    if (!result) return
+    _apply(activitiesRef.current, result, pxpTextRef.current, [])
+  }, [_run, _apply])
+
+  const removeResource = useCallback(async (resId: string) => {
+    pxpTextRef.current = pxpRemoveResource(pxpTextRef.current, resId)
+    pxpTextRef.current = pxpRemoveResourceAssignments(pxpTextRef.current, resId)
+    resourcesRef.current = resourcesRef.current.filter(r => r.id !== resId)
+    assignmentsRef.current = parseAssignmentsFromPxp(pxpTextRef.current)
+    setState(s => ({ ...s, loading: true }))
+    const result = await _run(activitiesRef.current)
+    if (!result) return
+    _apply(activitiesRef.current, result, pxpTextRef.current, [])
+  }, [_run, _apply])
+
+  const updateResource = useCallback(async (resId: string, name: string, maxUnits: number, costPerUnit: number) => {
+    pxpTextRef.current = pxpUpdateResource(pxpTextRef.current, resId, name, maxUnits, costPerUnit)
+    resourcesRef.current = resourcesRef.current.map(r =>
+      r.id === resId ? { ...r, name, max_units: maxUnits, cost_per_unit: costPerUnit } : r
+    )
+    setState(s => ({ ...s, loading: true }))
+    const result = await _run(activitiesRef.current)
+    if (!result) return
+    _apply(activitiesRef.current, result, pxpTextRef.current, [])
+  }, [_run, _apply])
+
   const fetchDetail = useCallback(async (actId: string) => {
     return fetchActivityDetail(pxpTextRef.current, actId)
   }, [])
@@ -477,6 +551,6 @@ export function useScheduler() {
     renameActivity,
     moveActivity, addRelation, updateActivityField, applyPxpText,
     addActivity, removeActivity, reorderActivity,
-    fetchDetail, getPxpText,
+    fetchDetail, getPxpText, addResource, removeResource, updateResource,
   }
 }

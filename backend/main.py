@@ -13,7 +13,12 @@ import pathlib
 
 SHARED_PXP_PATH = pathlib.Path(__file__).parent / "shared.pxp"
 
-app = FastAPI(title="P6Matrix API", version="2.0.0")
+app = FastAPI(
+    title="P6Matrix API",
+    version="2.0.0",
+    docs_url=None,   # Отключает Swagger UI (/docs)
+    redoc_url=None   # Отключает ReDoc (/redoc)
+)
 
 app.add_middleware(
     CORSMiddleware,

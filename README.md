@@ -1,11 +1,10 @@
 # P6Matrix - CPM Scheduler
 
 Приложение для расчёта проектного расписания по методу критического пути (CPM) с матричным движком.
-В надежде использовать позже WebGPU для расчета расписания и выравнивания ресурсов,
-что позволит, забрав с бекенда минимальные данные о работах и назначениях, отображать весь проект целиком с минимальными задержками
+Использует WebGPU для расчётов на клиенте, что позволяет отображать весь проект целиком с минимальными задержками.
 
 Application for project schedule calculation using the Critical Path Method (CPM) with a matrix engine.
-Planning to later use WebGPU for schedule calculation and resource leveling, which will allow displaying the entire project with minimal delays by fetching only minimal activity and assignment data from the backend
+Uses WebGPU for client-side calculations, allowing the entire project to be displayed with minimal delays.
 
 ![animated](animated.gif)
 
@@ -48,7 +47,6 @@ pydantic>=2.7.0
 ```
 
 API будет доступен по адресу: **http://localhost:8000** / API available at
-Документация Swagger: **http://localhost:8000/docs** / Swagger documentation
 
 ---
 
@@ -98,15 +96,16 @@ npm run build
 ### Взаимодействие с диаграммой Ганта
 
 | Действие | Результат |
-|----------|-----------|
+|----------|----------|
 | Двойной щелчок по названию работы / Double-click on activity name | Прокрутка графика / Scroll chart |
 | Двойной щелчок по шкале времени / Double-click on timeline | График полностью вписывается в экран / Chart fits entire screen |
 | Однократный щелчок по названию работы / Single click on activity name | Таблица свойств работы под графиком / Activity properties table below chart |
+| **Ctrl + Клик по работе / Ctrl + Click on activity** | **Множественный выбор работ (подсветка оранжевым) / Multi-select activities (orange highlight)** |
 | Перетаскивание полосы / Drag bar | Сдвиг работы (установка ограничения ES) / Shift activity (set ES constraint) |
 | Перетаскивание границы колонки / Drag column border | Изменение ширины колонки названий / Change name column width |
 | Перетаскивание по шкале времени / Drag on timeline | Зум графика / Zoom chart |
 | Перетаскивание внутри диаграммы, но не на работе / Drag inside diagram but not on activity | Перемещение графика / Pan chart |
-| Перетаскивание работы на другую работу / Drag activity on activity | FS |
+| Перетаскивание работы на другую работу / Drag activity on activity | Создание связи FS / Create FS link |
 
 ### Кнопки панели
 
@@ -115,6 +114,8 @@ npm run build
 | Пересчитать | Forward pass + backward pass (CPM) |
 | Выровнять ресурсы | CPM + эвристическое выравнивание |
 | Скачать PXP | Сохранить текущий план в `.pxp` |
+| **edraw** | **Экспорт выбранных работ в Excalidraw** / **Export selected activities to Excalidraw** |
+| **MCP AI** | **Сохранить сессию для AI (MCP) / Share session for AI (MCP)** |
 | RU / EN | Переключить язык интерфейса |
 
 ### Галочка Только в пределах резерва / Level within float only Checkbox
@@ -125,7 +126,40 @@ npm run build
 
 When leveling resources, the algorithm searches for the earliest available slot where the resource is not overloaded. The "Level within float only" checkbox restricts the search window: a task can only be shifted up to its Late Start (LS), meaning it stays within its existing total float. This guarantees that the overall project finish date does not change - leveling happens using the time buffer already present in the schedule.
 If the checkbox is unchecked, the algorithm is allowed to push tasks beyond their float - the project may finish later, but overloads will be resolved more completely. This makes sense when resource overloading is critical and more important than the deadline, or when most resources have insufficient float to level within it.
-In practice: if overloads remain after leveling with the checkbox on, it means they cannot be resolved without shifting critical activities. Uncheck the box to allow the project to extend in exchange for eliminating the overload
+In practice: if overloads remain after leveling with the checkbox on, it means they cannot be resolved without shifting critical activities. Uncheck the box to allow the project to extend in exchange for eliminating the overload.
+
+---
+
+## Экспорт в Excalidraw / Excalidraw Export
+
+Позволяет создать скетч расписания для вставки в заметки или презентации.
+Allows you to create a schedule sketch for inserting into notes or presentations.
+
+1. Удерживайте `Ctrl` и кликните на работы на диаграмме Ганта. Они выделятся оранжевым контуром. / Hold `Ctrl` and click on activities in the Gantt chart. They will be highlighted with an orange border.
+2. Нажмите кнопку **edraw**. / Click the **edraw** button.
+3. Скачается файл `.excalidraw`. / A `.excalidraw` file will be downloaded.
+
+![Excalidraw Export Screenshot](screenshots/excalidraw_export.png)
+
+Работы (до 20 шт) превращаются в карточки с названием и датами. / Activities (up to 20) turn into cards with names and dates.
+
+---
+
+## Интеграция с AI (MCP) / AI Integration (MCP)
+
+Интеграция с Claude и другими AI через Model Context Protocol.
+Integration with Claude and other AI via Model Context Protocol.
+
+1. Нажмите кнопку **MCP AI** в интерфейсе. / Click the **MCP AI** button in the UI.
+2. Текущее расписание сохранится в `backend/shared.pxp`. / The current schedule is saved to `backend/shared.pxp`.
+3. MCP-сервер (порт 3201) предоставит AI доступ к данным проекта. / The MCP server (port 3201) will provide AI access to project data.
+
+![MCP Inspector Screenshot](screenshots/mcp_inspector.png)
+
+**Доступные инструменты / Available Tools:**
+- `get_schedule_summary`: Сводка по проекту / Project summary.
+- `get_critical_path`: Критический путь / Critical path.
+- `check_schedule_quality`: Проверка качества DCMA / DCMA quality check.
 
 ---
 
@@ -144,7 +178,7 @@ POST /level         - расчёт + выравнивание ресурсов
 
 ## Матричный CPM-алгоритм
 
-Движок использует **тропическое (max-plus) матричное умножение** через numpy.
+Движок использует **тропическое (max-plus) матричное умножение** через numpy (CPU) или WebGPU (GPU).
 
 ### Матрицы N×N (где N = число работ)
 
@@ -185,7 +219,7 @@ device = torch.device("mps")
 
 FS_t = torch.tensor(FS, device=device)
 ES_t = torch.tensor(ES, device=device)
-D_t = torch.tensor(D,  device=device)
+D_t  = torch.tensor(D,  device=device)
 
 EF_col = (ES_t + D_t).unsqueeze(1)
 cand = torch.where(~torch.isnan(FS_t), EF_col + FS_t,

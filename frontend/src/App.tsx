@@ -11,7 +11,8 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Download, RefreshCw, Layers, Globe, Share2 } from 'lucide-react'
+import { AlertTriangle, Download, RefreshCw, Layers, Globe, Share2,
+  Plus, X, FileJson } from 'lucide-react'
 import clsx from 'clsx'
 import UploadZone from './components/UploadZone'
 import GanttChart from './components/GanttChart'
@@ -21,10 +22,200 @@ import AssignmentsTab from './components/AssignmentsTab'
 import ProjectStats from './components/ProjectStats'
 import ActivityDetailPanel from './components/ActivityDetailPanel'
 import { useScheduler } from './engine/useScheduler'
-import { pxpParseLockedIds, pxpParseCompletedIds, pxpGetAllRelations } from './utils/pxpMutations'
+import { pxpParseLockedIds, pxpParseCompletedIds, pxpGetAllRelations,
+  pxpBuildScheduleResults } from './utils/pxpMutations'
 import type { ActivityDetail } from './utils/api'
 
 type Tab = 'gantt' | 'table' | 'resources' | 'assignments' | 'pxp'
+
+// Размеры для Excalidraw
+const EDRAW_SCALE = 30; // пикселей на день
+const EDRAW_ROW_H = 80;
+const EDRAW_BAR_H = 50;
+const EDRAW_START_X = 250; // отступ для текста слева
+
+function generateExcalidrawJson(activities: any[], startDate: string, locale: string): object {
+  if (startDate) {}
+  const elements: any[] = [];
+  let seed = 1;
+
+  // Хелпер для форматирования дат
+  const fmtDate = (d: string | null) => {
+    if (!d) return "-";
+    if (locale === 'ru') {
+      // Преобразуем YYYY-MM-DD в DD.MM.YYYY
+      const parts = d.split('-');
+      if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+    return d; // Для английской локали оставляем как есть (YYYY-MM-DD)
+  };
+
+  activities.forEach((act, idx) => {
+    const y = idx * EDRAW_ROW_H + 20;
+    const x = act.es_days * EDRAW_SCALE + EDRAW_START_X;
+    const w = Math.max(act.duration, 1) * EDRAW_SCALE;
+
+    const isMilestone = act.duration === 0 || act.act_type === 'milestone';
+    const baseColor = act.on_critical ? '#c92a2a' : '#1971c2';
+    const bgColor = act.on_critical ? '#ffc9c9' : '#a5d8ff';
+
+    if (isMilestone) {
+      // Веха (Ромб) 
+      const size = 40;
+      const diamondId = `diamond-${Date.now()}-${idx}`;
+      const textId = `text-${Date.now()}-${idx}`;
+      elements.push({
+        type: 'diamond',
+        version: 1,
+        versionNonce: seed++,
+        isDeleted: false,
+        id: diamondId,
+        fillStyle: 'solid',
+        strokeWidth: 2,
+        strokeStyle: 'solid',
+        roughness: 1,
+        opacity: 100,
+        angle: 0,
+        x: x - size / 2, // Центрируем ромб по точке начала
+        y: y + (EDRAW_BAR_H / 2) - size / 2, // Вертикальное центрирование
+        strokeColor: baseColor,
+        backgroundColor: bgColor,
+        width: size,
+        height: size,
+        seed: Math.floor(Math.random() * 100000),
+        groupIds: [],
+        frameId: null,
+        roundness: null,
+        boundElements: [], // Текст не привязан к ромбу
+        updated: Date.now(),
+        link: null,
+        locked: false,
+      });
+
+      // Текст справа от ромба
+      const textContent = `${act.name}\n${fmtDate(act.es_date)}`;
+      
+      elements.push({
+        type: 'text',
+        version: 1,
+        versionNonce: seed++,
+        isDeleted: false,
+        id: textId,
+        fillStyle: 'solid',
+        strokeWidth: 1,
+        strokeStyle: 'solid',
+        roughness: 1,
+        opacity: 100,
+        angle: 0,
+        x: x + size / 2 + 10, // Отступ справа от ромба
+        y: y + (EDRAW_BAR_H / 2) - 10, 
+        strokeColor: '#1e293b',
+        backgroundColor: 'transparent',
+        width: 200,
+        height: 25,
+        seed: Math.floor(Math.random() * 100000),
+        groupIds: [],
+        frameId: null,
+        roundness: null,
+        boundElements: null,
+        updated: Date.now(),
+        link: null,
+        locked: false,
+        fontSize: 16,
+        fontFamily: 1,
+        text: textContent,
+        textAlign: 'left',
+        verticalAlign: 'middle',
+        containerId: null, // Не привязан к контейнеру
+        originalText: textContent,
+        lineHeight: 1.25,
+      });
+
+    } else {
+      // Обычная работа (Прямоугольник)
+      const rectId = `rect-${Date.now()}-${idx}`;
+      const textId = `text-${Date.now()}-${idx}`;
+
+      elements.push({
+        type: 'rectangle',
+        version: 1,
+        versionNonce: seed++,
+        isDeleted: false,
+        id: rectId,
+        fillStyle: 'solid',
+        strokeWidth: 2,
+        strokeStyle: 'solid',
+        roughness: 1,
+        opacity: 100,
+        angle: 0,
+        x: x,
+        y: y,
+        strokeColor: baseColor,
+        backgroundColor: bgColor,
+        width: w,
+        height: EDRAW_BAR_H,
+        seed: Math.floor(Math.random() * 100000),
+        groupIds: [],
+        frameId: null,
+        roundness: { type: 3 },
+        boundElements: [{ type: 'text', id: textId }],
+        updated: Date.now(),
+        link: null,
+        locked: false,
+      });
+
+      const textContent = `${act.name}\n${fmtDate(act.es_date)} — ${fmtDate(act.ef_date)}`;
+      
+      elements.push({
+        type: 'text',
+        version: 1,
+        versionNonce: seed++,
+        isDeleted: false,
+        id: textId,
+        fillStyle: 'solid',
+        strokeWidth: 1,
+        strokeStyle: 'solid',
+        roughness: 1,
+        opacity: 100,
+        angle: 0,
+        x: x + 8,
+        y: y + 8,
+        strokeColor: '#1e293b',
+        backgroundColor: 'transparent',
+        width: w - 16,
+        height: EDRAW_BAR_H - 16,
+        seed: Math.floor(Math.random() * 100000),
+        groupIds: [],
+        frameId: null,
+        roundness: null,
+        boundElements: null,
+        updated: Date.now(),
+        link: null,
+        locked: false,
+        fontSize: 16,
+        fontFamily: 1,
+        text: textContent,
+        textAlign: 'left',
+        verticalAlign: 'top',
+        containerId: rectId,
+        originalText: textContent,
+        lineHeight: 1.25,
+      });
+    }
+  });
+
+  return {
+    type: 'excalidraw',
+    version: 2,
+    source: 'https://excalidraw.com',
+    elements: elements,
+    appState: {
+      gridSize: null,
+      viewBackgroundColor: '#ffffff'
+    },
+    files: {}
+  };
+}
 
 export default function App() {
   const { t, i18n } = useTranslation()
@@ -42,6 +233,9 @@ export default function App() {
     removeActivity,
     reorderActivity,
     renameActivity,
+    addResource,
+    removeResource,
+    updateResource,
     fetchDetail,
     getPxpText,
   } = useScheduler()
@@ -61,6 +255,7 @@ export default function App() {
 
   const handleFile = useCallback((file: File) => {
     setSelectedActivityId(null)
+    setSelectedGanttIds([]) // Сброс мультивыбора
     setDetailData(null)
     setHardStarts(new Set())
     loadFile(file)
@@ -158,6 +353,10 @@ export default function App() {
   }, [project, updateActivityField, pxpText])
 
   const [shareStatus, setShareStatus] = useState<'idle' | 'sharing' | 'ok' | 'err'>('idle')
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false)
+  const [selectedGanttIds, setSelectedGanttIds] = useState<string[]>([])
+  const [isExporting, setIsExporting] = useState(false)
+  const [newProjectName, setNewProjectName] = useState('')
   const selectedActivityDisplay = selectedActivityId && project
     ? project.activities.find(a => a.id === selectedActivityId) ?? null
     : null
@@ -168,7 +367,31 @@ export default function App() {
     { id: 'resources', label: t('tab_resources') },
     { id: 'assignments', label: t('tab_assignments') },
     { id: 'pxp', label: t('tab_pxp') },
-  ]  
+  ]
+
+  const handleExportEdraw = useCallback(async () => {
+    if (!project || selectedGanttIds.length === 0) return
+    setIsExporting(true)
+
+    try {
+      // Берем до 20 работ, сортируем по дате начала
+      const selected = project.activities
+        .filter(a => selectedGanttIds.includes(a.id))
+        .sort((a, b) => a.es_days - b.es_days)
+        .slice(0, 20)
+
+      const json = generateExcalidrawJson(selected, project.start_date, i18n.language)
+      const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `schedule-${Date.now()}.excalidraw`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setIsExporting(false)
+    }
+  }, [project, selectedGanttIds])
 
   // Когда панель деталей открыта - добавляем scroll-padding-bottom на html
   // чтобы якорные прокрутки и клавиатурная навигация учитывали высоту панели
@@ -182,15 +405,54 @@ export default function App() {
     return () => { root.style.scrollPaddingBottom = '' }
   }, [selectedActivityDisplay])
 
+  const handleCreateProject = useCallback(() => {
+    const isRu = i18n.language === 'ru'
+    const startName = isRu ? t('activity_start_name') : t('activity_start_name')
+    const finishName = isRu ? t('activity_finish_name') : t('activity_finish_name')
+    const projId = 'P' + String(Date.now()).slice(-5)
+    const today = new Date().toISOString().slice(0, 10)
+    const pxp = [
+      `# Created by P6Matrix`,
+      ``,
+      `@META`,
+      `project_id   = ${projId}`,
+      `project_name = ${newProjectName.trim()}`,
+      `start_date   = ${today}`,
+      `data_date    = ${today}`,
+      `must_finish  = NULL`,
+      `calendar     = 5d8h`,
+      `duration_unit = days`,
+      ``,
+      `@ACTIVITIES`,
+      `# id | name | duration | type`,
+      `  START | ${startName} | 0 | milestone |  |  |  |  |  |  | 0 | 0 |  `,
+      `  FINISH | ${finishName} | 0 | milestone |  |  |  |  |  |  | 0 | 0 |  `,
+      ``,
+      `@RELATIONS`,
+      `# pred | succ | type | lag`,
+      `  START | FINISH | FS | 0`,
+      ``,
+    ].join('\n')
+    setSelectedActivityId(null)
+    setDetailData(null)
+    setHardStarts(new Set())
+    setShowNewProjectModal(false)
+    setNewProjectName('')
+    setActiveTab('gantt')
+    applyPxpText(pxp)
+  }, [newProjectName, i18n.language, t, applyPxpText])
+  
   const shareProject = useCallback(async () => {
     const text = getPxpText()
-    if (!text) return
+    if (!text || !project) return
     setShareStatus('sharing')
     try {
+      const scheduleSection = pxpBuildScheduleResults(project.activities)
+      const textWithResults = text + scheduleSection
       await fetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pxp_text: text }),
+        body: JSON.stringify({ pxp_text: textWithResults }),
       })
       setShareStatus('ok')
       setTimeout(() => setShareStatus('idle'), 2500)
@@ -198,7 +460,7 @@ export default function App() {
       setShareStatus('err')
       setTimeout(() => setShareStatus('idle'), 3000)
     }
-  }, [getPxpText])
+  }, [getPxpText, project])
 
   const downloadPxp = useCallback(() => {
     const text = getPxpText()
@@ -265,6 +527,16 @@ export default function App() {
                 title={t('btn_share')}>
                 <Share2 className="w-3.5 h-3.5" />
                 {shareStatus === 'sharing' ? '…' : shareStatus === 'ok' ? '✓' : shareStatus === 'err' ? '✗' : t('btn_share')}
+              </button>
+              <button onClick={handleExportEdraw} disabled={loading || isExporting || selectedGanttIds.length === 0}
+                className="btn-secondary flex items-center gap-1.5"
+                title={t('btn_edraw_title')}>
+                <FileJson className="w-3.5 h-3.5" />
+                {isExporting ? '...' : 'edraw'}
+              </button>
+              <button onClick={() => setShowNewProjectModal(true)} disabled={loading}
+                className="btn-secondary flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5" />{t('btn_new_project')}
               </button>
             </>)}
             <button onClick={toggleLang} className="btn-secondary flex items-center gap-1.5 ml-2">
@@ -349,6 +621,10 @@ export default function App() {
                   onDropRelation={handleDropRelation}
                   onSelectActivity={handleSelectActivity}
                   selectedActivityId={selectedActivityId}
+                  // Новые пропсы
+                  selectedIds={selectedGanttIds}
+                  onSelectedIdsChange={setSelectedGanttIds}
+                  // Конец новых пропсов
                   pxpText={pxpText}
                   showConnections={showConnections}
                   onToggleConnections={() => setShowConnections(v => !v)}
@@ -379,6 +655,9 @@ export default function App() {
                   startDate={project.start_date}
                   activities={project.activities}
                   assignments={project.assignments}
+                  onAddResource={addResource}
+                  onRemoveResource={removeResource}
+                  onUpdateResource={updateResource}
                 />
               )}
 
@@ -404,10 +683,17 @@ export default function App() {
         )}
 
         {!project && !loading && !error && (
-          <div className="text-center py-16 text-steel-600">
+          <div className="text-center py-16 text-steel-600 space-y-6">
             <Layers className="w-12 h-12 mx-auto mb-4 opacity-30" />
             <p className="font-display font-semibold text-lg">{t('no_project')}</p>
-            <p className="text-sm mt-1">{t('no_project_hint')}</p>
+            <p className="text-sm">{t('no_project_hint')}</p>
+            <div className="flex items-center justify-center gap-3">
+              <button onClick={() => setShowNewProjectModal(true)}
+                className="px-4 py-3 rounded-xl border border-dashed border-steel-600 hover:border-amber-400/60 bg-steel-900/40 hover:bg-amber-400/5 transition-all duration-300 flex items-center gap-2">
+                <Plus className="w-5 h-5 text-steel-400" />
+                <span className="text-sm font-medium text-steel-400">{t('btn_new_project')}</span>
+              </button>
+            </div>
           </div>
         )}
       </main>
@@ -433,6 +719,31 @@ export default function App() {
           onApplyPxpText={applyPxpText}
           loading={loading || detailLoading}
         />
+      )}
+
+      {showNewProjectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-steel-950/80 backdrop-blur-sm" onClick={() => setShowNewProjectModal(false)} />
+          <div className="relative bg-steel-900 border border-steel-700 rounded-2xl shadow-2xl px-6 py-5 w-96 animate-slide-in">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold text-steel-200">{t('new_project_title')}</span>
+              <button onClick={() => setShowNewProjectModal(false)} className="p-1 rounded hover:bg-steel-700 text-steel-400"><X className="w-4 h-4" /></button>
+            </div>
+            <label className="block text-xs text-steel-500 mb-1">{t('new_project_name_label')}</label>
+            <input
+              autoFocus
+              value={newProjectName}
+              onChange={e => setNewProjectName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && newProjectName.trim()) handleCreateProject(); if (e.key === 'Escape') setShowNewProjectModal(false) }}
+              placeholder={t('new_project_placeholder')}
+              className="w-full px-3 py-2 text-sm bg-steel-800 border border-steel-600 rounded-lg text-steel-100 focus:outline-none focus:border-amber-400/60 transition-colors mb-4"
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowNewProjectModal(false)} className="px-3 py-1.5 text-xs text-steel-400 border border-steel-700 rounded-lg hover:bg-steel-800 transition-colors">{t('cancel')}</button>
+              <button onClick={handleCreateProject} disabled={!newProjectName.trim()} className="px-3 py-1.5 text-xs text-amber-400 border border-amber-500/40 rounded-lg hover:bg-amber-400/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">{t('create')}</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

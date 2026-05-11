@@ -127,8 +127,8 @@ export default function AssignmentsTab({ resources, assignments, activities, res
                           {isSel && <Check className="w-2.5 h-2.5 text-emerald-400" />}
                         </span>
                         <span className="font-mono text-steel-500 flex-shrink-0">{r.id}</span>
-                        <span className="truncate flex-1">{r.name}</span>
-                        {st.overloaded && <span className="flex-shrink-0 px-1 py-0.5 bg-rose-500/20 text-rose-400 rounded text-[9px] font-semibold">!</span>}
+                        <span className="truncate">{r.name}</span>
+                        {st.overloaded && <span className="ml-auto flex-shrink-0 px-1 py-0.5 bg-rose-500/20 text-rose-400 rounded text-[9px] font-semibold">!</span>}
                       </button>
                     )
                   })}
