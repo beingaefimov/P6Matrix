@@ -49,7 +49,7 @@ npm install
 npm run dev
 ```
 
-Откройте браузер: **http://localhost:5173** / Open browser.
+Откройте браузер: **http://localhost:5173** / Open browser
 
 ---
 
@@ -128,11 +128,11 @@ In practice: if overloads remain after leveling with the checkbox on, it means t
 
 Allows you to create a schedule sketch for inserting into notes or presentations.
 
-1. Удерживайте `Ctrl` и кликните на работы на диаграмме Ганта. Они выделятся оранжевым контуром. / Hold `Ctrl` and click on activities in the Gantt chart. They will be highlighted with an orange border.
-2. Нажмите кнопку **edraw**. / Click the **edraw** button.
-3. Скачается файл `.excalidraw`. / File `.excalidraw` will be downloaded.
+1. Удерживайте `Ctrl` и кликните на работы на диаграмме Ганта. Они выделятся оранжевым контуром / Hold `Ctrl` and click on activities in the Gantt chart. They will be highlighted with an orange border
+2. Нажмите кнопку **edraw** / Click the **edraw** button
+3. Скачается файл `.excalidraw` / File `.excalidraw` will be downloaded
 
-![Excalidraw Export Screenshot](screenshots/excalidraw_export.png)
+![Excalidraw Export Screenshot](excalidraw_export.png)
 
 Работы (до 20 шт) превращаются в карточки с названием и датами / Activities (up to 20) turn into cards with names and dates
 
@@ -144,11 +144,11 @@ Allows you to create a schedule sketch for inserting into notes or presentations
 
 Integration with Claude and other AI via Model Context Protocol.
 
-1. Нажмите кнопку **MCP AI**. / Click the **MCP AI** button.
-2. Текущее расписание сохранится в `backend/shared.pxp`. / The current schedule is saved to `backend/shared.pxp`.
+1. Нажмите кнопку **MCP AI** / Click the **MCP AI** button
+2. Текущее расписание сохранится в `backend/shared.pxp` / The current schedule is saved to `backend/shared.pxp`
 3. MCP-сервер (порт 3201) предоставит AI доступ к данным проекта / The MCP server (port 3201) will provide AI access to project data
 
-![MCP Inspector Screenshot](screenshots/mcp_inspector.png)
+![MCP Inspector Screenshot](mcp_inspector.png)
 
 **Доступные инструменты / Available Tools:**
 
@@ -164,7 +164,7 @@ Integration with Claude and other AI via Model Context Protocol.
 *   `get_relationships`: Связи между работами (предшественники/последователи) / Activity relationships (pred/succ).
 *   `get_calendars`: Определения календарей (дни недели, часы) / Calendar definitions.
 *   `get_earned_value`: Показатели освоенного объёма (EVM): BAC, PV, EV, AC, CPI, SPI, EAC / Earned Value Management metrics.
-*   `get_activity_detail`: Полная детализация одной работы (поля, связи, назначения) / Full detail for a single activity.
+*   `get_activity_detail`: Детализация одной работы (поля, связи, назначения) / Detail for a single activity.
 
 ---
 
@@ -177,7 +177,7 @@ POST /schedule      - пересчёт из PXP-текста
 POST /level         - расчёт + выравнивание ресурсов
 ```
 
-Все endpoints открытые. CORS разрешён для любых источников (allow_origins=["*"]). / All endpoints are open. CORS allowed for any origin (allow_origins=["*"]).
+Все endpoints открытые. CORS разрешён для любых источников (allow_origins=["*"]) / All endpoints are open. CORS allowed for any origin (allow_origins=["*"])
 
 ---
 
