@@ -115,7 +115,7 @@ export default function ActivityTable({
   const toggleAll = () => setExpanded(allExpanded ? new Set() : new Set(activities.map(a => a.id)))
 
   const display = hasHierarchy ? rows : activities.map(a => ({ ...a, level: 0, hasChildren: false }))
-  const flatIds = display.map(a => a.id)
+  // const flatIds = display.map(a => a.id)
 
   return (
     <div className="space-y-3">
