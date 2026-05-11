@@ -6,7 +6,70 @@
  *  - Resource leveling - serial scheduling, тоже на GPU где возможно.
  * Fallback на CPU (JS) если WebGPU недоступен */
 
+// Selection may be required for other package configurations
 declare global {
+  interface GPU {
+    requestAdapter(): Promise<GPUAdapter | null>;
+  }
+
+  interface GPUAdapter {
+    requestDevice(): Promise<GPUDevice>;
+  }
+
+  interface GPUDevice {
+    readonly label: string;
+    readonly queue: GPUQueue;
+    createBuffer(descriptor: GPUBufferDescriptor): GPUBuffer;
+    createShaderModule(descriptor: { code: string }): GPUShaderModule;
+    createComputePipelineAsync(descriptor: any): Promise<GPUComputePipeline>;
+    createBindGroup(descriptor: any): GPUBindGroup;
+    createCommandEncoder(): GPUCommandEncoder;
+  }
+
+  interface GPUBufferDescriptor {
+    size: number;
+    usage: number;
+    mappedAtCreation?: boolean;
+  }
+
+  interface GPUQueue {
+    writeBuffer(buffer: GPUBuffer, offset: number, data: any): void;
+    submit(commandBuffers: GPUCommandBuffer[]): void;
+  }
+
+  interface GPUBuffer {
+    mapAsync(mode: number): Promise<void>;
+    getMappedRange(): ArrayBuffer;
+    unmap(): void;
+    destroy(): void;
+  }
+
+  interface GPUShaderModule {}
+  interface GPUComputePipeline {
+    getBindGroupLayout(index: number): GPUBindGroupLayout;
+  }
+  interface GPUBindGroup {}
+  interface GPUBindGroupLayout {}
+  
+  interface GPUCommandEncoder {
+    beginComputePass(): GPUComputePassEncoder;
+    copyBufferToBuffer(src: GPUBuffer, srcOffset: number, dst: GPUBuffer, dstOffset: number, size: number): void;
+    finish(): GPUCommandBuffer;
+  }
+
+  interface GPUComputePassEncoder {
+    setPipeline(pipeline: GPUComputePipeline): void;
+    setBindGroup(index: number, bindGroup: GPUBindGroup): void;
+    dispatchWorkgroups(x: number, y?: number, z?: number): void;
+    end(): void;
+  }
+  
+  interface GPUCommandBuffer {}
+
+  interface Navigator {
+    gpu: GPU;
+  }
+
   var GPUBufferUsage: {
     MAP_READ: number; MAP_WRITE: number; COPY_SRC: number; COPY_DST: number
     INDEX: number; VERTEX: number; UNIFORM: number; STORAGE: number
@@ -29,7 +92,6 @@ export interface ActivityMin {
   pct_complete: number
   actual_duration: number | null
   remaining_duration: number | null
-  // для отображения
   name: string
   parent_id: string | null
   act_type: string
@@ -310,7 +372,7 @@ async function _gpuIterativePass(
   // Выравниваем размер вверх до ближайшего кратного 4
   const align4 = (n: number) => Math.max(4, Math.ceil(n / 4) * 4)
 
-  const makeBuffer = (data: ArrayBufferView, usage: GPUBufferUsageFlags) => {
+  const makeBuffer = (data: ArrayBufferView, usage: number) => {
     const size = align4(data.byteLength)
     const buf = device.createBuffer({ size, usage: usage | GPUBufferUsage.COPY_DST })
     // Копируем данные через промежуточный ArrayBuffer выровненного размера

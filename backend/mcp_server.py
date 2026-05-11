@@ -138,25 +138,31 @@ def _load_with_results() -> tuple[dict[str, Any], dict[str, dict]]:
     sched = _parse_schedule_results(text)
     return data, sched
 
-
-# ─── Auth stub (Keycloak) ─────────────────────────────────────────────────────
-# Раскомментировать для реальной интеграции:
-#
+# Auth stub (Keycloak)
 # from python_keycloak import KeycloakOpenID
 # from mcp.server.auth.provider import TokenVerifier
-#
 # KC = KeycloakOpenID(server_url="https://keycloak.example.com/",
 #                     realm_name="p6matrix", client_id="mcp-server",
 #                     client_secret_key="SECRET")
-#
 # class KeycloakVerifier(TokenVerifier):
 #     async def verify_token(self, token: str) -> dict:
 #         info = KC.introspect(token)
 #         if not info.get("active"): raise ValueError("Token inactive")
 #         return {"sub": info["sub"], "username": info.get("preferred_username", "")}
-#
 # mcp = FastMCP(..., token_verifier=KeycloakVerifier())
-
+# или...
+# @app.middleware("http")
+# async def auth_middleware(request: Request, call_next):
+#     auth = request.headers.get("Authorization", "")
+#     if not auth.startswith("Bearer "):
+#         return JSONResponse({"error": "Unauthorized"}, status_code=401)
+#     try:
+#         token_info = KC.introspect(auth[7:])
+#         if not token_info.get("active"):
+#             return JSONResponse({"error": "Token inactive"}, status_code=401)
+#     except Exception as e:
+#         return JSONResponse({"error": str(e)}, status_code=401)
+#     return await call_next(request)
 
 def _impl_get_schedule_summary() -> dict:
     data, sched = _load_with_results()

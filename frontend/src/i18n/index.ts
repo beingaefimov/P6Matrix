@@ -111,7 +111,7 @@ const resources = {
       move_left: 'Сдвинуть влево (повысить)',
       move_right: 'Сдвинуть вправо (понизить)',
       btn_share: 'MCP AI',
-      btn_edraw_title: '"Экспорт в Excalidraw',
+      btn_edraw_title: 'Экспорт в Excalidraw',
       rename_activity: 'Переименовать работу',
       save: 'Сохранить',
       btn_new_project: 'Новый проект',

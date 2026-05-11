@@ -1,7 +1,7 @@
-""" Бэкенд делает ТОЛЬКО:
+""" Бэкенд делает только:
 1. Парсинг .pxp / .xer - минимальные данные для клиента
 2. Получение деталей одной задачи по id (lazy)
-3. Сохранение .pxp (Download)
+3. Сохранение .pxp
 Весь CPM и выравнивание ресурсов - на клиенте (WebGPU) """
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
@@ -16,8 +16,8 @@ SHARED_PXP_PATH = pathlib.Path(__file__).parent / "shared.pxp"
 app = FastAPI(
     title="P6Matrix API",
     version="2.0.0",
-    docs_url=None,   # Отключает Swagger UI (/docs)
-    redoc_url=None   # Отключает ReDoc (/redoc)
+    docs_url=None, # Отключает Swagger UI (/docs)
+    redoc_url=None # Отключает ReDoc (/redoc)
 )
 
 app.add_middleware(

@@ -4,7 +4,7 @@
 Использует WebGPU для расчётов на клиенте, что позволяет отображать весь проект целиком с минимальными задержками.
 
 Application for project schedule calculation using the Critical Path Method (CPM) with a matrix engine.
-Uses WebGPU for client-side calculations, allowing the entire project to be displayed with minimal delays.
+Uses WebGPU for client-side calculations, allowing the entire project to be displayed with minimal delays
 
 ![animated](animated.gif)
 
@@ -35,6 +35,7 @@ source .venv/bin/activate # Linux/macOS
 
 pip install -r requirements.txt
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn mcp_server:app --host 0.0.0.0 --port 3201
 ```
 
 API будет доступен по адресу: **http://localhost:8000** / API available at
@@ -114,11 +115,11 @@ npm run build
 
 При выравнивании ресурсов алгоритм ищет для каждой задачи наиболее ранний слот, в котором ресурс не перегружен. Галочка «Только в пределах резерва» ограничивает область поиска: задача может быть сдвинута не позже своего позднего начала (LS), то есть только в пределах имеющегося временного резерва (total float). Тогда общая дата окончания проекта не изменится, выравнивание происходит за счёт существующего резерва времени.
 Если галочка снята, алгоритм может сдвигать задачи за пределы резерва, тогда проект может удлиниться, но перегрузки будут устранены более полно. Это имеет смысл когда перегрузка критична и важнее срока, или когда у большинства ресурсов нет достаточного резерва для выравнивания внутри него.
-На практике: если после выравнивания с галочкой перегрузки остались, то это значит, что их невозможно устранить без сдвига критических работ. Снимите галочку, чтобы разрешить удлинение проекта ради снятия перегрузки
+На практике: если после выравнивания с галочкой перегрузки остались, то это значит, что их невозможно устранить без сдвига критических работ. Снимите галочку, чтобы разрешить удлинение проекта ради снятия перегрузки.
 
 When leveling resources, the algorithm searches for the earliest available slot where the resource is not overloaded. The "Level within float only" checkbox restricts the search window: a task can only be shifted up to its Late Start (LS), meaning it stays within its existing total float. This guarantees that the overall project finish date does not change - leveling happens using the time buffer already present in the schedule.
 If the checkbox is unchecked, the algorithm is allowed to push tasks beyond their float - the project may finish later, but overloads will be resolved more completely. This makes sense when resource overloading is critical and more important than the deadline, or when most resources have insufficient float to level within it.
-In practice: if overloads remain after leveling with the checkbox on, it means they cannot be resolved without shifting critical activities. Uncheck the box to allow the project to extend in exchange for eliminating the overload.
+In practice: if overloads remain after leveling with the checkbox on, it means they cannot be resolved without shifting critical activities. Uncheck the box to allow the project to extend in exchange for eliminating the overload
 
 ---
 
@@ -144,6 +145,11 @@ Allows you to create a schedule sketch for inserting into notes or presentations
 
 Integration with Claude and other AI via Model Context Protocol.
 
+```bash
+cd ~
+MCP_PROXY_AUTH_TOKEN=12345678AABBCCDD7164ab79d855946c458a2b940a57098aAABBCCDD12345678 npx @modelcontextprotocol/inspector
+```
+
 1. Нажмите кнопку **MCP AI** / Click the **MCP AI** button
 2. Текущее расписание сохранится в `backend/shared.pxp` / The current schedule is saved to `backend/shared.pxp`
 3. MCP-сервер (порт 3201) предоставит AI доступ к данным проекта / The MCP server (port 3201) will provide AI access to project data
@@ -152,19 +158,19 @@ Integration with Claude and other AI via Model Context Protocol.
 
 **Доступные инструменты / Available Tools:**
 
-*   `get_general_data`: Общие данные: мета проекта, количество работ, разбивка по статусам / General data: project meta, counts, status breakdown.
-*   `get_schedule_summary`: Сводка по проекту: даты, количество завершённых/в работе / At-a-glance stats: dates, completed/in-progress counts.
-*   `get_project_activities`: Список работ с фильтрами (статус, тип, название) / Activities list with filters (status, type, name).
-*   `get_critical_path`: Критический путь (работы с TF=0) / Critical path activities (TF=0).
-*   `get_resources`: Список ресурсов и их лимиты / Resources list and limits.
-*   `get_resource_assignments`: Назначения ресурсов на работы / Resource-activity assignments.
-*   `analyze_resource_utilization`: Анализ загрузки ресурсов (пики, перегрузки) / Resource utilization analysis (peaks, overloads).
-*   `check_schedule_quality`: DCMA-проверки качества расписания (отсутствие связей, длинные работы) / DCMA-style schedule quality checks.
-*   `get_wbs`: Иерархическая структура работ (WBS) / Work Breakdown Structure.
-*   `get_relationships`: Связи между работами (предшественники/последователи) / Activity relationships (pred/succ).
-*   `get_calendars`: Определения календарей (дни недели, часы) / Calendar definitions.
-*   `get_earned_value`: Показатели освоенного объёма (EVM): BAC, PV, EV, AC, CPI, SPI, EAC / Earned Value Management metrics.
-*   `get_activity_detail`: Детализация одной работы (поля, связи, назначения) / Detail for a single activity.
+*   `get_general_data`: Общие данные: мета проекта, количество работ, разбивка по статусам / General data: project meta, counts, status breakdown
+*   `get_schedule_summary`: Сводка по проекту: даты, количество завершённых/в работе / At-a-glance stats: dates, completed/in-progress counts
+*   `get_project_activities`: Список работ с фильтрами (статус, тип, название) / Activities list with filters (status, type, name)
+*   `get_critical_path`: Критический путь (работы с TF=0) / Critical path activities (TF=0)
+*   `get_resources`: Список ресурсов и их лимиты / Resources list and limits
+*   `get_resource_assignments`: Назначения ресурсов на работы / Resource-activity assignments
+*   `analyze_resource_utilization`: Анализ загрузки ресурсов (пики, перегрузки) / Resource utilization analysis (peaks, overloads)
+*   `check_schedule_quality`: DCMA-проверки качества расписания (отсутствие связей, длинные работы) / DCMA-style schedule quality checks
+*   `get_wbs`: Иерархическая структура работ (WBS) / Work Breakdown Structure
+*   `get_relationships`: Связи между работами (предшественники/последователи) / Activity relationships (pred/succ)
+*   `get_calendars`: Определения календарей (дни недели, часы) / Calendar definitions
+*   `get_earned_value`: Показатели освоенного объёма (EVM): BAC, PV, EV, AC, CPI, SPI, EAC / Earned Value Management metrics
+*   `get_activity_detail`: Детализация одной работы (поля, связи, назначения) / Detail for a single activity
 
 ---
 
