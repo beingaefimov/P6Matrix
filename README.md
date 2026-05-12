@@ -194,34 +194,43 @@ POST /level         - расчёт + выравнивание ресурсов
 ### Хранение графа: CSR (Compressed Sparse Row)
 
 Память: O(E), где E примерно 2-5*N (ребер на задачу)
+```bash
 interface CSR {
   row_ptr: Int32Array   // row_ptr[i]..row_ptr[i+1] - диапазон ребер из вершины i
   col: Int32Array       // индексы соседних вершин (предшественников/преемников)
   lag: Float64Array     // значения лагов для каждого ребра
   rel_type: Uint8Array  // 0=FS, 1=SS, 2=FF, 3=SF
 }
+```
 
 ### Формулы расчёта кандидатов по типам связей
 
 Прямой проход (вычисление Early Start):
+```bash
 FS: cand = EF_pred + lag
 SS: cand = ES_pred + lag
 FF: cand = EF_pred + lag - duration_succ
 SF: cand = ES_pred + lag - duration_succ
 ES[j] = max(ES[j], все cand от предшественников, constraint_es[j])
+```
 
 Обратный проход (вычисление Late Finish):
+```bash
 FS: cand = LS_succ - lag
 SS: cand = LS_succ - lag + duration_pred
 FF: cand = LF_succ - lag
 SF: cand = LF_succ + duration_pred - lag
 LF[i] = min(LF[i], все cand от преемников, project_finish)
+```
 
 ### Реализация на WebGPU (WGSL)
 
 Фиксированная точка *1000 для точности в f32
+```bash
 ES/LF хранятся как atomic<i32> = значение * 1000
+```
 
+```bash
 @compute @workgroup_size(64)
 fn forward_step(@builtin(global_invocation_id) gid: vec3<u32>) {
   let j = gid.x;  // текущая задача
@@ -239,14 +248,17 @@ fn forward_step(@builtin(global_invocation_id) gid: vec3<u32>) {
   let old = atomicMax(&ES[j], best_fixed);
   if (old < best_fixed) { atomicStore(&changed[0], 1u); }
 }
+```
 
 Обратный проход: трюк с инверсией знака. Поскольку WGSL не имеет atomicMin, для поиска минимума используется инверсия:
 
+```bash
 // Храним -LF вместо LF
 // atomicMax на отрицательных значениях эквивалентно atomicMin на положительных
 let best_neg_fixed = i32(-best * 1000.0);  // best - кандидат на LF
 let old = atomicMax(&LF[i], best_neg_fixed);  // LF[i] хранит -значение
 // При чтении: LF_real = -atomicLoad(&LF[i]) / 1000.0
+```
 
 Итерационный процесс:
 
@@ -282,6 +294,7 @@ let old = atomicMax(&LF[i], best_neg_fixed);  // LF[i] хранит -значе�
 
 Идентичная логика расчётов, но последовательное выполнение:
 
+```bash
 // Прямой проход
 for (iter = 0; iter < maxIter; iter++) {
   for (each edge i->j) {
@@ -291,9 +304,11 @@ for (iter = 0; iter < maxIter; iter++) {
   if (!changed) break;
 }
 // Обратный проход - аналогично с поиском минимума
+```
 
 Вычисление Free Float
 
+```bash
 FF[i] = min(
   REL_FS: ES[j] - EF[i] - lag,
   REL_SS: ES[j] - ES[i] - lag,
@@ -301,6 +316,7 @@ FF[i] = min(
   REL_SF: EF[j] - ES[i] - lag
 ) по всем преемникам j;
 // Если нет преемников: FF[i] = TF[i]
+```
 
 ---
 
