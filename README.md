@@ -187,56 +187,122 @@ POST /level         - расчёт + выравнивание ресурсов
 
 ---
 
-## Матричный CPM-алгоритм
+## Используемый CPM-алгоритм
 
-Движок использует **тропическое (max-plus) матричное умножение** через numpy (CPU) или WebGPU (GPU).
+Движок рассчитывает ранние/поздние сроки методом итеративной релаксации на разреженном графе связей. Вычисления выполняются параллельно на GPU через WebGPU/WGSL или на CPU (JavaScript) при отсутствии поддержки GPU.
 
-### Матрицы N×N (где N = число работ)
+Хранение графа: CSR (Compressed Sparse Row)
 
-```python
-FS[i,j] = лаг  если есть Finish-to-Start связь i в j, иначе nan
-SS[i,j] = лаг  Start-to-Start
-FF[i,j] = лаг  Finish-to-Finish
-SF[i,j] = лаг  Start-to-Finish
-D[i]    = длительность работы i
-```
+Память: O(E), где E примерно 2-5*N (ребер на задачу)
+interface CSR {
+  row_ptr: Int32Array   // row_ptr[i]..row_ptr[i+1] - диапазон ребер из вершины i
+  col: Int32Array       // индексы соседних вершин (предшественников/преемников)
+  lag: Float64Array     // значения лагов для каждого ребра
+  rel_type: Uint8Array  // 0=FS, 1=SS, 2=FF, 3=SF
+}
 
-### Прямой проход
+Формулы расчёта кандидатов по типам связей
 
-```python
-# FS: EF предшественника + лаг
-EF_col = (ES + D).reshape(N, 1)
-cand   = where(mask_FS, EF_col + FS, -inf)
-ES     = maximum(ES, cand.max(axis=0))
+Прямой проход (вычисление Early Start):
+FS: cand = EF_pred + lag
+SS: cand = ES_pred + lag
+FF: cand = EF_pred + lag - duration_succ
+SF: cand = ES_pred + lag - duration_succ
+ES[j] = max(ES[j], все cand от предшественников, constraint_es[j])
 
-# Аналогично для SS, FF, SF
-```
+Обратный проход (вычисление Late Finish):
+FS: cand = LS_succ - lag
+SS: cand = LS_succ - lag + duration_pred
+FF: cand = LF_succ - lag
+SF: cand = LF_succ + duration_pred - lag
+LF[i] = min(LF[i], все cand от преемников, project_finish)
 
-### Обратный проход (транспонированный граф)
+Реализация на WebGPU (WGSL)
 
-```python
-LS_row = (LF - D).reshape(1, N)
-cand   = where(mask_FS, LS_row - FS, +inf)
-LF     = minimum(LF, cand.min(axis=1))
-```
+Фиксированная точка *1000 для точности в f32
+ES/LF хранятся как atomic<i32> = значение * 1000
 
-### Ускорение на Metal (Apple Silicon)
+@compute @workgroup_size(64)
+fn forward_step(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let j = gid.x;  // текущая задача
+  var best: f32 = constraint_es[j] >= 0.0 ? constraint_es[j] : 0.0;
+  
+  // Перебор предшественников из CSR
+  for (var k = fwd_ptr[j]; k < fwd_ptr[j+1]; k++) {
+    let i = fwd_col[k];  // предшественник
+    // ... вычисление cand по rel_type[k] и lag[k]
+    if (cand > best) { best = cand; }
+  }
+  
+  // Атомарное обновление с детектом изменений
+  let best_fixed = i32(best * 1000.0);
+  let old = atomicMax(&ES[j], best_fixed);
+  if (old < best_fixed) { atomicStore(&changed[0], 1u); }
+}
 
-Заменить `numpy` на `torch` с `.to("mps")`:
+Обратный проход: трюк с инверсией знака
 
-```python
-import torch
-device = torch.device("mps")
+Поскольку WGSL не имеет atomicMin, для поиска минимума используется инверсия:
 
-FS_t = torch.tensor(FS, device=device)
-ES_t = torch.tensor(ES, device=device)
-D_t  = torch.tensor(D,  device=device)
+// Храним -LF вместо LF
+// atomicMax на отрицательных значениях эквивалентно atomicMin на положительных
+let best_neg_fixed = i32(-best * 1000.0);  // best - кандидат на LF
+let old = atomicMax(&LF[i], best_neg_fixed);  // LF[i] хранит -значение
+// При чтении: LF_real = -atomicLoad(&LF[i]) / 1000.0
 
-EF_col = (ES_t + D_t).unsqueeze(1)
-cand = torch.where(~torch.isnan(FS_t), EF_col + FS_t,
-    torch.tensor(-1e15, device=device))
-ES_new = cand.max(dim=0).values.clamp(min=0)
-```
+Итерационный процесс
+
+1. Инициализация:
+   - ES = 0 (или constraint_es если задано)
+   - LF = project_finish (макс. EF после прямого прохода)
+
+2. Прямой проход:
+   - Запуск WGSL-шейдера для всех N задач параллельно
+   - Повторять пока changed[0] == 1 (есть обновления)
+   - Макс. итераций: N*3 + 10 (защита от циклов)
+
+3. Обратный проход:
+   - Аналогично, но на транспонированном графе (rev CSR)
+   - Используется инверсия знака для атомарного минимума
+
+4. Пост-обработка (CPU):
+   - EF = ES + duration
+   - LS = LF - duration
+   - TF = LF - EF (критический путь: |TF| < 1e-6)
+   - FF = min(ES_succ - EF_pred - lag, ...) по всем преемникам
+
+Особенности реализации
+
+- Точность: фиксированная точка *1000 компенсирует ограничения f32 в WGSL
+- Параллелизм: 1 workgroup = 1 задача, 64 потока в workgroup
+- Синхронизация: флаг changed через staging buffer (чтение после dispatch)
+- Fallback: автоматический переход на CPU-реализацию при ошибке WebGPU
+- Memory safety: CSR-массивы выравниваются до кратных 4 байт для writeBuffer
+- Resource leveling: serial scheduling на CPU с учётом locked-задач (фактически начатых/завершённых)
+
+CPU fallback (JavaScript)
+
+Идентичная логика расчётов, но последовательное выполнение:
+
+// Прямой проход
+for (iter = 0; iter < maxIter; iter++) {
+  for (each edge i->j) {
+    compute cand by rel_type;
+    if (cand > ES[j] + epsilon) { ES[j] = cand; changed = true; }
+  }
+  if (!changed) break;
+}
+// Обратный проход - аналогично с поиском минимума
+
+Вычисление Free Float
+
+FF[i] = min(
+  REL_FS: ES[j] - EF[i] - lag,
+  REL_SS: ES[j] - ES[i] - lag,
+  REL_FF: EF[j] - EF[i] - lag,
+  REL_SF: EF[j] - ES[i] - lag
+) по всем преемникам j;
+// Если нет преемников: FF[i] = TF[i]
 
 ---
 
