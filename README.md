@@ -226,9 +226,7 @@ LF[i] = min(LF[i], все cand от преемников, project_finish)
 ### Реализация на WebGPU (WGSL)
 
 Фиксированная точка *1000 для точности в f32
-```bash
 ES/LF хранятся как atomic<i32> = значение * 1000
-```
 
 ```bash
 @compute @workgroup_size(64)
