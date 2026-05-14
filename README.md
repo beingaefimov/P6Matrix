@@ -193,7 +193,7 @@ MCP_PROXY_AUTH_TOKEN=12345678AABBCCDD7164ab79d855946c458a2b940a57098aAABBCCDD123
 *   `http://localhost:3102/v1/chat/completions`: OpenAI API 
 *   `http://localhost:3201/mcp`: Сервер MCP / server 
 
-![Node-RED Screenshot](node_red.png.png)
+![Node-RED Screenshot](node_red.png)
 
 ---
 
