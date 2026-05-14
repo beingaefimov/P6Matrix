@@ -145,14 +145,15 @@ Allows you to create a schedule sketch for inserting into notes or presentations
 
 Integration with Claude and other AI via Model Context Protocol.
 
+1. Нажмите кнопку **MCP AI** / Click the **MCP AI** button
+2. Текущее расписание сохранится в `backend/shared.pxp` / The current schedule is saved to `backend/shared.pxp`
+3. MCP-сервер (порт 3201) предоставит AI доступ к данным проекта / The MCP server (port 3201) will provide AI access to project data
+4. Тест в modelcontextprotocol/inspector / Test
+
 ```bash
 cd ~
 MCP_PROXY_AUTH_TOKEN=12345678AABBCCDD7164ab79d855946c458a2b940a57098aAABBCCDD12345678 npx @modelcontextprotocol/inspector
 ```
-
-1. Нажмите кнопку **MCP AI** / Click the **MCP AI** button
-2. Текущее расписание сохранится в `backend/shared.pxp` / The current schedule is saved to `backend/shared.pxp`
-3. MCP-сервер (порт 3201) предоставит AI доступ к данным проекта / The MCP server (port 3201) will provide AI access to project data
 
 ![MCP Inspector Screenshot](mcp_inspector.png)
 
@@ -187,7 +188,8 @@ MCP_PROXY_AUTH_TOKEN=12345678AABBCCDD7164ab79d855946c458a2b940a57098aAABBCCDD123
 **GUIDE - Помощник по выбору / Selection Helper**
 *   `guide.select_analysis_approach`: Рекомендации по инструментам на основе описания задачи / Tool recommendations based on task description
 
-**Пример AI потока Node-RED / AI pipeline example**
+5. Пример AI потока Node-RED / AI pipeline example
+
 *   `schedule_agents_pipeline.json`: Поток Node-RED / pipeline 
 *   `T-lite-it-2.1-Q4_K_M.gguf`: LLM 
 *   `http://localhost:3102/v1/chat/completions`: OpenAI API 
