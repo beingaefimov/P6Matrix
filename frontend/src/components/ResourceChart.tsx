@@ -407,7 +407,7 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
               {t('delete_resource_body')}
             </p>
             <p className="text-xs text-steel-200 font-mono mb-4 truncate">
-              {deleteResTarget.id} — {deleteResTarget.name}
+              {deleteResTarget.id} - {deleteResTarget.name}
             </p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setDeleteResTarget(null)} className="px-3 py-1.5 text-xs text-steel-400 border border-steel-700 rounded-lg hover:bg-steel-800 transition-colors">{t('cancel')}</button>

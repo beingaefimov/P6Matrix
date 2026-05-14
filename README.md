@@ -158,19 +158,42 @@ MCP_PROXY_AUTH_TOKEN=12345678AABBCCDD7164ab79d855946c458a2b940a57098aAABBCCDD123
 
 **Доступные инструменты / Available Tools:**
 
-*   `get_general_data`: Общие данные: мета проекта, количество работ, разбивка по статусам / General data: project meta, counts, status breakdown
-*   `get_schedule_summary`: Сводка по проекту: даты, количество завершённых/в работе / At-a-glance stats: dates, completed/in-progress counts
-*   `get_project_activities`: Список работ с фильтрами (статус, тип, название) / Activities list with filters (status, type, name)
-*   `get_critical_path`: Критический путь (работы с TF=0) / Critical path activities (TF=0)
-*   `get_resources`: Список ресурсов и их лимиты / Resources list and limits
-*   `get_resource_assignments`: Назначения ресурсов на работы / Resource-activity assignments
-*   `analyze_resource_utilization`: Анализ загрузки ресурсов (пики, перегрузки) / Resource utilization analysis (peaks, overloads)
-*   `check_schedule_quality`: DCMA-проверки качества расписания (отсутствие связей, длинные работы) / DCMA-style schedule quality checks
-*   `get_wbs`: Иерархическая структура работ (WBS) / Work Breakdown Structure
-*   `get_relationships`: Связи между работами (предшественники/последователи) / Activity relationships (pred/succ)
-*   `get_calendars`: Определения календарей (дни недели, часы) / Calendar definitions
-*   `get_earned_value`: Показатели освоенного объёма (EVM): BAC, PV, EV, AC, CPI, SPI, EAC / Earned Value Management metrics
-*   `get_activity_detail`: Детализация одной работы (поля, связи, назначения) / Detail for a single activity
+**RAW - Детальные данные / Detailed Data**
+*   `raw.get_schedule_summary` : Сводка проекта: общие данные, даты, статусы / Project summary: meta, dates, status counts
+*   `raw.get_project_activities`: Список работ с фильтрами / Activities list with filters (status, type, name, aggregate_by)
+*   `raw.get_critical_path`: Критический путь / Critical path activities
+*   `raw.get_resources`: Список ресурсов и их лимиты / Resources list and limits
+*   `raw.get_resource_assignments`: Назначения ресурсов на работы / Resource-activity assignments
+*   `raw.analyze_resource_utilization`: Анализ загрузки ресурсов / Resource utilization analysis (totals, overloads)
+*   `raw.check_schedule_quality`: DCMA-проверки качества расписания / DCMA-style schedule quality checks
+*   `raw.get_wbs`: Иерархическая структура работ (WBS) / Work Breakdown Structure
+*   `raw.get_relationships`: Связи между работами (предшественники/последователи) / Activity relationships (pred/succ)
+*   `raw.get_calendars`: Определения календарей (дни недели, часы) / Calendar definitions
+*   `raw.get_earned_value`: Показатели освоенного объёма (EVM): BAC, PV, EV, AC, CPI, SPI, EAC / Earned Value Management metrics
+*   `raw.get_activity_detail`: Детализация одной работы (поля, связи, назначения) / Detail for a single activity
+
+**ANALYTICS - Агрегированная аналитика / Aggregated Analytics**
+*   `analytics.schedule_health_dashboard`: Композитная оценка здоровья расписания (0-100), топ-3 риска / Composite schedule health score (0-100), top-3 risks
+*   `analytics.risk_hotspots`: Топ-N зон риска с расчётом risk_score / Top-N risk zones with computed risk_score
+*   `analytics.wbs_rollup_metrics`: Агрегированные метрики по уровням WBS / Aggregated metrics by WBS level
+*   `analytics.critical_path_analytics`: Статистика критического пути: длина, бутылочные горлышки / Critical path statistics: length, bottlenecks
+*   `analytics.resource_aggregate_utilization`: Загрузка ресурсов по группам (тип/команда) / Resource utilization by groups (type/team)
+*   `analytics.evm_trend_analysis`: Тренды EVM (CPI/SPI) с прогнозом и текстовым выводом / EVM trends with forecast and narrative
+
+**REPORTS - Готовые отчёты / Ready Reports**
+*   `reports.executive_brief`: Краткий отчёт под аудиторию (руководство / менеджер / тимлид) / Executive brief tailored to audience (executive / PM / team lead)
+*   `reports.anomaly_alerts`: Только отклонения от нормы: отрицательный резерв, низкий прогресс / Anomaly-only alerts: negative float, low progress
+
+**GUIDE - Помощник по выбору / Selection Helper**
+*   `guide.select_analysis_approach`: Рекомендации по инструментам на основе описания задачи / Tool recommendations based on task description
+
+**Пример AI потока Node-RED / AI pipeline example**
+*   `schedule_agents_pipeline.json`: Поток Node-RED / pipeline 
+*   `T-lite-it-2.1-Q4_K_M.gguf`: LLM 
+*   `http://localhost:3102/v1/chat/completions`: OpenAI API 
+*   `http://localhost:3201/mcp`: Сервер MCP / server 
+
+![Node-RED Screenshot](node_red.png.png)
 
 ---
 

@@ -164,7 +164,7 @@ function generateExcalidrawJson(activities: any[], startDate: string, locale: st
         locked: false,
       });
 
-      const textContent = `${act.name}\n${fmtDate(act.es_date)} — ${fmtDate(act.ef_date)}`;
+      const textContent = `${act.name}\n${fmtDate(act.es_date)} - ${fmtDate(act.ef_date)}`;
       
       elements.push({
         type: 'text',
