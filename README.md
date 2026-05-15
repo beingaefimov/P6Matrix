@@ -188,7 +188,7 @@ MCP_PROXY_AUTH_TOKEN=12345678AABBCCDD7164ab79d855946c458a2b940a57098aAABBCCDD123
 **GUIDE - Помощник по выбору / Selection Helper**
 *   `guide.select_analysis_approach`: Рекомендации по инструментам на основе описания задачи / Tool recommendations based on task description
 
-5. Пример AI потока Node-RED / AI pipeline example
+5. Примеры AI потоков Node-RED / AI pipeline examples
 
 *   `T-lite-it-2.1-Q4_K_M.gguf`: LLM 
 *   `http://localhost:3102/v1/chat/completions`: OpenAI API 
