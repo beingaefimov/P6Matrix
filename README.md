@@ -191,14 +191,14 @@ MCP_PROXY_AUTH_TOKEN=12345678AABBCCDD7164ab79d855946c458a2b940a57098aAABBCCDD123
 5. Примеры AI потоков Node-RED / AI pipeline examples
 
 *   `T-lite-it-2.1-Q4_K_M.gguf`: LLM 
-*   `http://localhost:3102/v1/chat/completions`: OpenAI API 
+*   `http://localhost:3102/v1/chat/completions`: OpenAI API (llama.cpp hosted)
 *   `http://localhost:3201/mcp`: Сервер MCP / server
 
-*   `schedule_agents_pipeline.json`: Поток Node-RED / pipeline
+*   `schedule_agents_pipeline.json`: Tool-calls поток Node-RED / Tool-calls pipeline
   
 ![Node-RED Screenshot1](node_red.png)
 
-*   `rewoo_pipeline.json`: Поток Node-RED / pipeline
+*   `rewoo_skill_pipeline.json`: ReWOO поток Node-RED, использует адаптацию SKILL.md / ReWOO pipeline with adopted SKILL.md 
 
 ![Node-RED Screenshot2](rewoo_pipeline.png)
 

@@ -1,0 +1,692 @@
+[
+    {
+        "id": "e32d3fd2848795d2",
+        "type": "tab",
+        "label": "ReWOO Pipeline with CPM Skill",
+        "disabled": false,
+        "info": "ReWOO + CPM Scheduler Skill"
+    },
+    {
+        "id": "fcb5c6ba5aea18a8",
+        "type": "inject",
+        "z": "e32d3fd2848795d2",
+        "name": "Critical Path Query",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "Какие задачи находятся на критическом пути и есть ли риски срыва сроков? ",
+        "payloadType": "str",
+        "x": 130,
+        "y": 40,
+        "wires": [
+            [
+                "efcfcf668510cee5"
+            ]
+        ]
+    },
+    {
+        "id": "c6ec7a52d7780ed7",
+        "type": "inject",
+        "z": "e32d3fd2848795d2",
+        "name": "Resource Utilization Query",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "resources",
+        "payload": "Покажи загрузку ресурсов по командам: есть ли перегрузки и какие лимиты нарушены?",
+        "payloadType": "str",
+        "x": 170,
+        "y": 100,
+        "wires": [
+            [
+                "efcfcf668510cee5"
+            ]
+        ]
+    },
+    {
+        "id": "38147f26831aba27",
+        "type": "inject",
+        "z": "e32d3fd2848795d2",
+        "name": "EVM Health Query",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "evm",
+        "payload": "Какова текущая оценка здоровья расписания и динамика EVM-показателей (CPI/SPI)?",
+        "payloadType": "str",
+        "x": 150,
+        "y": 200,
+        "wires": [
+            [
+                "efcfcf668510cee5"
+            ]
+        ]
+    },
+    {
+        "id": "fe489fee0eaaa035",
+        "type": "inject",
+        "z": "e32d3fd2848795d2",
+        "name": "Executive Report Query",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "executive",
+        "payload": "Подготовь краткий отчёт для руководства: ключевые отклонения и рекомендации",
+        "payloadType": "str",
+        "x": 140,
+        "y": 260,
+        "wires": [
+            [
+                "efcfcf668510cee5"
+            ]
+        ]
+    },
+    {
+        "id": "6cf12da327118e47",
+        "type": "http in",
+        "z": "e32d3fd2848795d2",
+        "name": "POST /schedule-query",
+        "url": "/schedule-query",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 140,
+        "y": 160,
+        "wires": [
+            [
+                "efcfcf668510cee5"
+            ]
+        ]
+    },
+    {
+        "id": "efcfcf668510cee5",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "Проверка входных данных",
+        "func": "node.status({fill:\"blue\",shape:\"dot\",text:\"Входные данные\"});\nconst userQuery = msg.payload?.query || msg.payload?.message || msg.payload || '';\nif (!userQuery || typeof userQuery !== 'string' || userQuery.trim() === '') {\n    node.warn('[REWOO][INPUT] Пустой запрос. Прерывание.');\n    node.status({fill:\"red\",shape:\"ring\",text:\"Ошибка: Пусто\"});\n    return null;\n}\nnode.warn(`[REWOO][INPUT] Принят запрос: \"${userQuery.substring(0, 80)}...`);\nmsg.context = {\n    userQuery: userQuery.trim(),\n    timestamp: new Date().toISOString(),\n    plan: null, observations: {}, finalAnswer: null, pdfPath: null\n};\nmsg.payload = userQuery.trim();\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 540,
+        "y": 60,
+        "wires": [
+            [
+                "0a0974e54221a406"
+            ]
+        ]
+    },
+    {
+        "id": "0a0974e54221a406",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "MCP: Initialize",
+        "func": "node.status({fill:\"blue\",shape:\"dot\",text:\"MCP Init\"});\nnode.warn('[REWOO][MCP] Инициализация сессии...');\nmsg.payload = {\n    \"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\n    \"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"node-red-rewoo\",\"version\":\"3.0\"}}\n};\nmsg.headers = {\"Content-Type\":\"application/json\",\"Accept\":\"application/json, text/event-stream\"};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 860,
+        "y": 60,
+        "wires": [
+            [
+                "2cea185f249b87cd"
+            ]
+        ]
+    },
+    {
+        "id": "2cea185f249b87cd",
+        "type": "http request",
+        "z": "e32d3fd2848795d2",
+        "name": "HTTP: MCP Init",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "http://localhost:3201/mcp",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": true,
+        "headers": [],
+        "x": 540,
+        "y": 160,
+        "wires": [
+            [
+                "a9bd21847d678482"
+            ]
+        ]
+    },
+    {
+        "id": "a9bd21847d678482",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "Сохранить Session → tools/list",
+        "func": "const sessionId = msg.headers && (msg.headers['mcp-session-id'] || msg.headers['Mcp-Session-Id']);\nif (sessionId) {\n    msg._mcpSessionId = sessionId;\n    node.warn(`[REWOO][MCP] Session ID получен: ${sessionId}`);\n} else {\n    node.warn('[REWOO][MCP] Session ID НЕ найден!');\n}\nnode.status({fill:\"blue\",shape:\"dot\",text:\"Получение инструментов\"});\nmsg.payload = {\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}};\nmsg.headers = {\"Content-Type\":\"application/json\",\"Accept\":\"application/json, text/event-stream\"};\nif (sessionId) msg.headers['mcp-session-id'] = sessionId;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 790,
+        "y": 160,
+        "wires": [
+            [
+                "713139a0d9421066"
+            ]
+        ]
+    },
+    {
+        "id": "713139a0d9421066",
+        "type": "http request",
+        "z": "e32d3fd2848795d2",
+        "name": "HTTP: MCP tools/list",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "http://localhost:3201/mcp",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": true,
+        "headers": [],
+        "x": 1060,
+        "y": 160,
+        "wires": [
+            [
+                "94ee4582840ea1a3"
+            ]
+        ]
+    },
+    {
+        "id": "94ee4582840ea1a3",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "1. PLANNER: Подготовка + Skill",
+        "func": "node.status({fill:\"yellow\",shape:\"dot\",text:\"Плановик: Промпт\"});\n\nfunction parseMcp(raw) {\n    if (typeof raw === 'object' && raw !== null) return raw;\n    if (typeof raw !== 'string') return null;\n    const m = raw.match(/^data:\\s*(\\{[\\s\\S]*\\})\\s*$/m);\n    if (m) { try { return JSON.parse(m[1]); } catch(e) {} }\n    try { return JSON.parse(raw.trim()); } catch(e) {}\n    return null;\n}\n\nconst mcpData = parseMcp(msg.payload);\nconst mcpTools = mcpData?.result?.tools || [];\nnode.warn(`[REWOO][PLANNER] Доступно MCP инструментов: ${mcpTools.length}`);\n\n// Формируем список инструментов для дополнения скилла\nconst toolsDesc = mcpTools.map(t =>\n    `- ${t.name}: ${t.description || 'No description'}. Params: ${JSON.stringify(t.inputSchema?.properties || {})}`\n).join('\\n');\n\n// PLANNER_SYSTEM берётся из flow-контекста (задаётся узлом \"Загрузить Skill\")\nconst PLANNER_SYSTEM = flow.get('PLANNER_SKILL') || 'You are a ReWOO planner. Output JSON array only.';\nconst fullSystem = PLANNER_SYSTEM + '\\n' + toolsDesc;\n\nmsg.payload = {\n    model: \"T-lite-it-2.1-Q4_K_M.gguf\",\n    max_tokens: 6000,\n    temperature: 0.0,\n    messages: [\n        { role: \"system\", content: fullSystem },\n        { role: \"user\", content: msg.context.userQuery }\n    ]\n};\n\nnode.warn('[REWOO][PLANNER] Запрос к LLM отправлен...');\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 240,
+        "wires": [
+            [
+                "13d2e3b6fec0c02a"
+            ]
+        ]
+    },
+    {
+        "id": "13d2e3b6fec0c02a",
+        "type": "http request",
+        "z": "e32d3fd2848795d2",
+        "name": "LLM: Planner",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://192.168.1.137:3102/v1/chat/completions",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "bearer",
+        "senderr": false,
+        "headers": [],
+        "x": 740,
+        "y": 240,
+        "wires": [
+            [
+                "5740bbaecca60b87"
+            ]
+        ]
+    },
+    {
+        "id": "5740bbaecca60b87",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "Парсинг плана",
+        "func": "let raw = msg.payload?.choices?.[0]?.message?.content || '';\nnode.warn(`[REWOO][PLANNER] Сырой ответ LLM:\\n${raw}`);\nlet plan = [];\ntry {\n    let clean = raw.replace(/```json\\s*/gi, '').replace(/```\\s*/g, '').trim();\n    const jsonMatch = clean.match(/\\[[\\s\\S]*\\]/);\n    if (jsonMatch) clean = jsonMatch[0];\n    plan = JSON.parse(clean);\n} catch (e) {\n    node.error(`[REWOO][PLANNER] Ошибка парсинга JSON плана!`, msg);\n}\nif (!Array.isArray(plan) || plan.length === 0) {\n    node.warn(\"[REWOO][PLANNER] План пуст. Передаем в Solver без данных.\");\n    plan = [];\n}\nmsg.context.plan = plan;\nmsg._planSteps = plan;\nmsg._currentStepIndex = 0;\nmsg._observations = {};\nnode.status({fill:\"green\",shape:\"dot\",text:`План: ${plan.length} шагов`});\nnode.warn(`[REWOO][PLANNER] Успешно распарсен план на ${plan.length} шагов.`);\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 950,
+        "y": 240,
+        "wires": [
+            [
+                "1bde4c3deb580edf"
+            ]
+        ]
+    },
+    {
+        "id": "1bde4c3deb580edf",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "2. WORKER: Контроллер",
+        "func": "if (msg._currentStepIndex < msg._planSteps.length) {\n    const step = msg._planSteps[msg._currentStepIndex];\n    node.status({fill:\"blue\",shape:\"dot\",text:`Worker: Шаг ${msg._currentStepIndex+1}/${msg._planSteps.length}`});\n    node.warn(`[REWOO][WORKER] Запуск шага ${step.step} -> ${step.tool}`);\n    return [msg, null];\n} else {\n    node.status({fill:\"green\",shape:\"ring\",text:\"Worker: Завершено\"});\n    node.warn(`[REWOO][WORKER] Все инструменты выполнены. Собрано данных: ${Object.keys(msg._observations).length}`);\n    return [null, msg];\n}",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 210,
+        "y": 340,
+        "wires": [
+            [
+                "a8d28949e24fa551"
+            ],
+            [
+                "c8b6e03201f36997"
+            ]
+        ]
+    },
+    {
+        "id": "a8d28949e24fa551",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "WORKER: Подготовка MCP",
+        "func": "const step = msg._planSteps[msg._currentStepIndex];\nlet resolvedArgs = {};\nif (step.arguments) {\n    for (let key in step.arguments) {\n        let val = String(step.arguments[key]);\n        if (val.startsWith('#E') && msg._observations[val]) {\n            resolvedArgs[key] = msg._observations[val];\n        } else {\n            resolvedArgs[key] = step.arguments[key];\n        }\n    }\n}\nnode.warn(`[REWOO][WORKER] Аргументы для ${step.tool}: ${JSON.stringify(resolvedArgs).substring(0, 200)}`);\nmsg._currentStepId = step.step;\nmsg.payload = {\n    jsonrpc: \"2.0\", id: Date.now(), method: \"tools/call\",\n    params: { name: step.tool, arguments: resolvedArgs }\n};\nmsg.headers = {\"Content-Type\":\"application/json\",\"Accept\":\"application/json, text/event-stream\"};\nif (msg._mcpSessionId) msg.headers['mcp-session-id'] = msg._mcpSessionId;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 530,
+        "y": 340,
+        "wires": [
+            [
+                "9c75b30cb5e284e9"
+            ]
+        ]
+    },
+    {
+        "id": "9c75b30cb5e284e9",
+        "type": "http request",
+        "z": "e32d3fd2848795d2",
+        "name": "HTTP: Worker MCP Call",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "http://localhost:3201/mcp",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 800,
+        "y": 340,
+        "wires": [
+            [
+                "3805336075a44241"
+            ]
+        ]
+    },
+    {
+        "id": "3805336075a44241",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "WORKER: Обработка результата",
+        "func": "function parseMcp(raw) {\n    if (typeof raw === 'object' && raw !== null) return raw;\n    if (typeof raw !== 'string') return null;\n    const m = raw.match(/^data:\\s*(\\{[\\s\\S]*\\})\\s*$/m);\n    if (m) { try { return JSON.parse(m[1]); } catch(e) {} }\n    try { return JSON.parse(raw.trim()); } catch(e) {}\n    return null;\n}\nconst parsed = parseMcp(msg.payload);\nlet resultText = '';\nif (parsed?.result?.content?.[0]?.text) {\n    resultText = parsed.result.content[0].text;\n} else {\n    resultText = JSON.stringify(parsed?.result || parsed || 'no result');\n}\nmsg._observations[msg._currentStepId] = resultText;\nnode.warn(`[REWOO][WORKER] Результат ${msg._currentStepId} получен (длина: ${resultText.length} символов)`);\nmsg._currentStepIndex++;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 400,
+        "wires": [
+            [
+                "1bde4c3deb580edf"
+            ]
+        ]
+    },
+    {
+        "id": "c8b6e03201f36997",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "3. SOLVER: Подготовка + Skill",
+        "func": "node.status({fill:\"yellow\",shape:\"dot\",text:\"Решатель: Промпт\"});\n\nconst SOLVER_SYSTEM = flow.get('SOLVER_SKILL') || 'You are a ReWOO solver. Answer the question using the observations. Match the language of the question.';\n\nlet obsText = 'No data (plan was empty).';\nif (Object.keys(msg._observations).length > 0) {\n    obsText = Object.entries(msg._observations)\n        .map(([k, v]) => `--- ${k} ---\\n${v}`)\n        .join('\\n\\n');\n}\n\nnode.warn(`[REWOO][SOLVER] Собрано текста с данными: ${obsText.length} символов`);\n\nmsg.payload = {\n    model: \"T-lite-it-2.1-Q4_K_M.gguf\",\n    max_tokens: 12000,\n    temperature: 0.2,\n    messages: [\n        { role: \"system\", content: SOLVER_SYSTEM },\n        { role: \"user\", content: `Вопрос пользователя: ${msg.context.userQuery}\\n\\nДанные (Observations):\\n${obsText}\\n\\nНапиши финальный ответ.` }\n    ]\n};\nnode.warn('[REWOO][SOLVER] Запрос к LLM отправлен...');\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 270,
+        "y": 440,
+        "wires": [
+            [
+                "bb45e2ce7de8a264"
+            ]
+        ]
+    },
+    {
+        "id": "bb45e2ce7de8a264",
+        "type": "http request",
+        "z": "e32d3fd2848795d2",
+        "name": "LLM: Solver",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://192.168.1.137:3102/v1/chat/completions",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "bearer",
+        "senderr": false,
+        "headers": [],
+        "x": 510,
+        "y": 440,
+        "wires": [
+            [
+                "eb3d7feda6c3c476"
+            ]
+        ]
+    },
+    {
+        "id": "eb3d7feda6c3c476",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "Парсинг ответа Solver",
+        "func": "const finalText = msg.payload?.choices?.[0]?.message?.content || 'Ответ не получен от Solver';\nmsg.context.finalAnswer = finalText;\nmsg.payload = finalText;\nnode.status({fill:\"green\",shape:\"dot\",text:`Ответ готов (${finalText.length} сим.)`});\nnode.warn(`[REWOO][SOLVER] Финальный текст получен. Длина: ${finalText.length}`);\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 740,
+        "y": 440,
+        "wires": [
+            [
+                "7f53dcae28ad7a96"
+            ]
+        ]
+    },
+    {
+        "id": "7f53dcae28ad7a96",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "Сохранение текста в TXT",
+        "func": "node.status({fill:\"blue\",shape:\"dot\",text:\"Сохранение TXT\"});\nmsg.filename = \"/tmp/schedule_answer_text.txt\";\nmsg.payload = msg.context.finalAnswer || '';\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1000,
+        "y": 440,
+        "wires": [
+            [
+                "990f6dd4d021a91f"
+            ]
+        ]
+    },
+    {
+        "id": "990f6dd4d021a91f",
+        "type": "file",
+        "z": "e32d3fd2848795d2",
+        "name": "Записать текст ответа",
+        "filename": "/tmp/answer_text.txt",
+        "filenameType": "str",
+        "appendNewline": true,
+        "createDir": false,
+        "overwriteFile": "true",
+        "encoding": "utf8",
+        "x": 190,
+        "y": 520,
+        "wires": [
+            [
+                "e032ef12db3e928b"
+            ]
+        ]
+    },
+    {
+        "id": "e032ef12db3e928b",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "Подготовка скрипта PDF",
+        "func": "node.log('[prepare_pdf] Начало подготовки скрипта PDF');\n\nconst timestamp = new Date().toISOString().replace(/[:.]/g, '-');\nconst pdfPath = '/tmp/ai_response_' + timestamp + '.pdf';\n\nconst metaData = {\n    userQuery: msg.context.userQuery || '',\n    routerInfo: msg.context.routerDecision?.reasoning || '',\n    agentsUsed: [\n        ...(msg.context.routerDecision?.useAgent1 ? ['Аналитик'] : []),\n        ...(msg.context.routerDecision?.useAgent2 ? ['Синтезатор'] : []),\n    ].join(', ') || 'не определено',\n};\n\n// pythonScript собирается через обычные строки - никаких template literal,\n// никаких ${...} внутри, Node-RED не ломается.\nconst lines = [\n\"import sys\",\n\"import re\",\n\"from reportlab.lib.pagesizes import A4\",\n\"from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle\",\n\"from reportlab.lib.units import cm\",\n\"from reportlab.lib import colors\",\n\"from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, Table, TableStyle, Preformatted\",\n\"from reportlab.pdfbase import pdfmetrics\",\n\"from reportlab.pdfbase.ttfonts import TTFont\",\n\"from datetime import datetime\",\n\"\",\n\"try:\",\n\"    pdfmetrics.registerFont(TTFont('DejaVuSans',         '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))\",\n\"    pdfmetrics.registerFont(TTFont('DejaVuSans-Bold',    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))\",\n\"    pdfmetrics.registerFont(TTFont('DejaVuSans-Oblique', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf'))\",\n\"    pdfmetrics.registerFont(TTFont('DejaVuSansMono',     '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf'))\",\n\"    FONT      = 'DejaVuSans'\",\n\"    FONT_BOLD = 'DejaVuSans-Bold'\",\n\"    FONT_MONO = 'DejaVuSansMono'\",\n\"except:\",\n\"    FONT      = 'Helvetica'\",\n\"    FONT_BOLD = 'Helvetica-Bold'\",\n\"    FONT_MONO = 'Courier'\",\n\"\",\n\"user_query      = '\" + metaData.userQuery.replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"\\\\'\") + \"'\",\n\"router_info     = '\" + metaData.routerInfo.replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"\\\\'\") + \"'\",\n\"agents_used_str = '\" + metaData.agentsUsed.replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"\\\\'\") + \"'\",\n\"\",\n// Путь к PDF подставляем через конкатенацию строк JS - единственное место интерполяции\n\"doc = SimpleDocTemplate(\",\n\"    '\" + pdfPath + \"',\",\n\"    pagesize=A4,\",\n\"    rightMargin=2*cm, leftMargin=2*cm,\",\n\"    topMargin=2*cm,   bottomMargin=2*cm\",\n\")\",\n\"\",\n\"title_style    = ParagraphStyle('Title',    fontName=FONT_BOLD, fontSize=16, spaceAfter=12,  leading=20,  textColor=colors.HexColor('#1a1a2e'))\",\n\"heading_style  = ParagraphStyle('Heading',  fontName=FONT_BOLD, fontSize=13, spaceAfter=8,   spaceBefore=16, leading=18, textColor=colors.HexColor('#16213e'))\",\n\"heading3_style = ParagraphStyle('Heading3', fontName=FONT_BOLD, fontSize=11, spaceAfter=6,   spaceBefore=12, leading=15, textColor=colors.HexColor('#16213e'))\",\n\"meta_style     = ParagraphStyle('Meta',     fontName=FONT,      fontSize=9,  spaceAfter=4,   textColor=colors.HexColor('#666666'))\",\n\"body_style     = ParagraphStyle('Body',     fontName=FONT,      fontSize=11, spaceAfter=8,   leading=16)\",\n\"list_style     = ParagraphStyle('List',     fontName=FONT,      fontSize=11, spaceAfter=4,   leading=16, leftIndent=20, bulletIndent=10)\",\n\"code_style     = ParagraphStyle('Code',     fontName=FONT_MONO, fontSize=9,  spaceAfter=6,   spaceBefore=6, leading=13,\",\n\"                                 backColor=colors.HexColor('#f5f5f5'), leftIndent=10, rightIndent=10, borderPadding=(4, 6, 4, 6))\",\n\"cell_style      = ParagraphStyle('Cell',     fontName=FONT,      fontSize=9,  leading=13)\",\n\"cell_style_bold = ParagraphStyle('CellBold', fontName=FONT_BOLD, fontSize=9,  leading=13)\",\n\"\",\n\"BACKTICK = chr(96)\",\n\"\",\n\"def format_inline(text):\",\n\"    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')\",\n\"    text = re.sub(r'\\\\*\\\\*(.*?)\\\\*\\\\*', r'<b>\\\\1</b>',   text, flags=re.DOTALL)\",\n\"    text = re.sub(r'\\\\*(.*?)\\\\*',       r'<i>\\\\1</i>',   text, flags=re.DOTALL)\",\n\"    bt_pattern = BACKTICK + r'(.*?)' + BACKTICK\",\n\"    text = re.sub(bt_pattern, lambda m: '<font face=\\\"' + FONT_MONO + '\\\">' + m.group(1) + '</font>', text)\",\n\"    return text\",\n\"\",\n\"def parse_md(text):\",\n\"    flowables = []\",\n\"    lines     = text.split('\\\\n')\",\n\"    i = 0\",\n\"    while i < len(lines):\",\n\"        line     = lines[i]\",\n\"        stripped = line.strip()\",\n\"        if not stripped:\",\n\"            i += 1\",\n\"            continue\",\n\"        triple_bt = BACKTICK * 3\",\n\"        if stripped.startswith(triple_bt):\",\n\"            code_lines = []\",\n\"            i += 1\",\n\"            while i < len(lines) and not lines[i].strip().startswith(triple_bt):\",\n\"                code_lines.append(lines[i])\",\n\"                i += 1\",\n\"            i += 1\",\n\"            flowables.append(Preformatted('\\\\n'.join(code_lines), code_style))\",\n\"            continue\",\n\"        if stripped.startswith('### '):\",\n\"            flowables.append(Paragraph(format_inline(stripped[4:]), heading3_style))\",\n\"            i += 1\",\n\"            continue\",\n\"        if stripped.startswith('## '):\",\n\"            flowables.append(Paragraph(format_inline(stripped[3:]), heading_style))\",\n\"            i += 1\",\n\"            continue\",\n\"        if stripped.startswith('# '):\",\n\"            flowables.append(Paragraph(format_inline(stripped[2:]), title_style))\",\n\"            i += 1\",\n\"            continue\",\n\"        if stripped.startswith('|'):\",\n\"            table_data = []\",\n\"            row_idx    = 0\",\n\"            while i < len(lines) and lines[i].strip().startswith('|'):\",\n\"                r = lines[i].strip()\",\n\"                if re.match(r'^\\\\|[\\\\s\\\\-:\\\\|]+\\\\|$', r):\",\n\"                    i += 1\",\n\"                    continue\",\n\"                cells = [format_inline(c.strip()) for c in r.split('|')[1:-1]]\",\n\"                style_to_use = cell_style_bold if row_idx == 0 else cell_style\",\n\"                table_data.append([Paragraph(c, style_to_use) for c in cells])\",\n\"                row_idx += 1\",\n\"                i += 1\",\n\"            if table_data:\",\n\"                available_width = A4[0] - 4*cm\",\n\"                num_cols  = len(table_data[0])\",\n\"                col_width = available_width / num_cols\",\n\"                t = Table(table_data, colWidths=[col_width] * num_cols, repeatRows=1)\",\n\"                t.setStyle(TableStyle([\",\n\"                    ('BACKGROUND',    (0, 0), (-1, 0),  colors.HexColor('#f0f0f0')),\",\n\"                    ('GRID',         (0, 0), (-1, -1), 0.5, colors.grey),\",\n\"                    ('VALIGN',       (0, 0), (-1, -1), 'TOP'),\",\n\"                    ('LEFTPADDING',  (0, 0), (-1, -1), 6),\",\n\"                    ('RIGHTPADDING', (0, 0), (-1, -1), 6),\",\n\"                    ('TOPPADDING',   (0, 0), (-1, -1), 4),\",\n\"                    ('BOTTOMPADDING',(0, 0), (-1, -1), 4),\",\n\"                ]))\",\n\"                flowables.append(Spacer(1, 0.3*cm))\",\n\"                flowables.append(t)\",\n\"                flowables.append(Spacer(1, 0.3*cm))\",\n\"            continue\",\n\"        if re.match(r'^[\\\\-\\\\*]\\\\s', stripped):\",\n\"            items = []\",\n\"            while i < len(lines) and re.match(r'^[\\\\-\\\\*]\\\\s', lines[i].strip()):\",\n\"                item = re.sub(r'^[\\\\-\\\\*]\\\\s+', '', lines[i].strip())\",\n\"                items.append(f'<li>{format_inline(item)}</li>')\",\n\"                i += 1\",\n\"            flowables.append(Paragraph(f\\\"<ul>{''.join(items)}</ul>\\\", list_style))\",\n\"            continue\",\n\"        if re.match(r'^\\\\d+\\\\.\\\\s', stripped):\",\n\"            idx = 1\",\n\"            while i < len(lines) and re.match(r'^\\\\d+\\\\.\\\\s', lines[i].strip()):\",\n\"                item = re.sub(r'^\\\\d+\\\\.\\\\s+', '', lines[i].strip())\",\n\"                flowables.append(Paragraph(f'{idx}.\\\\xa0{format_inline(item)}', list_style))\",\n\"                idx += 1\",\n\"                i   += 1\",\n\"            continue\",\n\"        para_lines = []\",\n\"        while i < len(lines):\",\n\"            l = lines[i].strip()\",\n\"            if (not l\",\n\"                    or l.startswith('#')\",\n\"                    or l.startswith('|')\",\n\"                    or l.startswith(triple_bt)\",\n\"                    or re.match(r'^[\\\\-\\\\*]\\\\s', l)\",\n\"                    or re.match(r'^\\\\d+\\\\.\\\\s', l)):\",\n\"                break\",\n\"            para_lines.append(format_inline(l))\",\n\"            i += 1\",\n\"        if para_lines:\",\n\"            flowables.append(Paragraph('<br/>'.join(para_lines), body_style))\",\n\"    return flowables\",\n\"\",\n\"EMOJI_MAP = {\",\n\"    '\\\\u2705':        '\\\\u2714',\",\n\"    '\\\\u274c':        '\\\\u2718',\",\n\"    '\\\\u26a0\\\\ufe0f': '\\\\u26a0',\",\n\"    '\\\\u26a0':        '\\\\u26a0',\",\n\"    '\\\\U0001f6d1':    '[!]',\",\n\"    '\\\\u26d4':        '[x]',\",\n\"    '\\\\u270b':        '[stop]',\",\n\"    '\\\\U0001f534':    '\\\\u25cf',\",\n\"    '\\\\U0001f7e2':    '\\\\u25cf',\",\n\"    '\\\\U0001f7e1':    '\\\\u25cf',\",\n\"    '\\\\U0001f535':    '\\\\u25cf',\",\n\"    '\\\\U0001f7e0':    '\\\\u25cf',\",\n\"    '\\\\U0001f536':    '\\\\u25c6',\",\n\"    '\\\\U0001f537':    '\\\\u25c6',\",\n\"    '\\\\U0001f538':    '\\\\u25c7',\",\n\"    '\\\\U0001f539':    '\\\\u25c7',\",\n\"    '\\\\u25b6\\\\ufe0f': '\\\\u25ba',\",\n\"    '\\\\u25c0\\\\ufe0f': '\\\\u25c4',\",\n\"    '\\\\u2b06\\\\ufe0f': '\\\\u25b2',\",\n\"    '\\\\u2b07\\\\ufe0f': '\\\\u25bc',\",\n\"    '\\\\u27a1\\\\ufe0f': '\\\\u2192',\",\n\"    '\\\\u2b05\\\\ufe0f': '\\\\u2190',\",\n\"    '\\\\u2197\\\\ufe0f': '\\\\u2197',\",\n\"    '\\\\u2198\\\\ufe0f': '\\\\u2198',\",\n\"    '\\\\u2b50':        '\\\\u2605',\",\n\"    '\\\\U0001f31f':    '\\\\u2605',\",\n\"    '\\\\u2728':        '*',\",\n\"    '\\\\U0001f4cc':    '\\\\u2022',\",\n\"    '\\\\U0001f4cd':    '\\\\u2022',\",\n\"    '\\\\U0001f4ce':    '-',\",\n\"    '\\\\U0001f517':    '[link]',\",\n\"    '\\\\U0001f4a1':    '[i]',\",\n\"    '\\\\U0001f511':    '[key]',\",\n\"    '\\\\U0001f3af':    '[>]',\",\n\"    '\\\\U0001f680':    '[>>]',\",\n\"    '\\\\U0001f4ac':    '[msg]',\",\n\"    '\\\\U0001f4ca':    '[chart]',\",\n\"    '\\\\U0001f4c8':    '[up]',\",\n\"    '\\\\U0001f4c9':    '[down]',\",\n\"    '1\\\\ufe0f\\\\u20e3': '1.',\",\n\"    '2\\\\ufe0f\\\\u20e3': '2.',\",\n\"    '3\\\\ufe0f\\\\u20e3': '3.',\",\n\"    '4\\\\ufe0f\\\\u20e3': '4.',\",\n\"    '5\\\\ufe0f\\\\u20e3': '5.',\",\n\"    '6\\\\ufe0f\\\\u20e3': '6.',\",\n\"    '7\\\\ufe0f\\\\u20e3': '7.',\",\n\"    '8\\\\ufe0f\\\\u20e3': '8.',\",\n\"    '9\\\\ufe0f\\\\u20e3': '9.',\",\n\"    '0\\\\ufe0f\\\\u20e3': '0.',\",\n\"    '\\\\u200b': '',\",\n\"    '\\\\u00a0': ' ',\",\n\"    '\\\\ufeff': '',\",\n\"}\",\n\"\",\n\"def clean_emoji(text):\",\n\"    for src, dst in EMOJI_MAP.items():\",\n\"        text = text.replace(src, dst)\",\n\"    text = re.sub(r'[\\\\U00010000-\\\\U0010ffff]', '[ ]', text)\",\n\"    return text\",\n\"\",\n\"story = []\",\n\"story.append(Paragraph('AI-агенты: Ответ на запрос', title_style))\",\n\"story.append(HRFlowable(width='100%', thickness=2, color=colors.HexColor('#1a1a2e')))\",\n\"story.append(Spacer(1, 0.3*cm))\",\n\"story.append(Paragraph('Дата: ' + datetime.now().strftime('%d.%m.%Y %H:%M'), meta_style))\",\n\"story.append(Paragraph(f'Использованные агенты: {agents_used_str}', meta_style))\",\n\"story.append(Paragraph(f'Логика роутера: {format_inline(router_info)}', meta_style))\",\n\"story.append(Spacer(1, 0.5*cm))\",\n\"story.append(Paragraph('Запрос пользователя', heading_style))\",\n\"story.append(HRFlowable(width='100%', thickness=1, color=colors.HexColor('#cccccc')))\",\n\"story.append(Spacer(1, 0.2*cm))\",\n\"story.append(Paragraph(format_inline(user_query), body_style))\",\n\"story.append(Spacer(1, 0.5*cm))\",\n\"story.append(Paragraph('Ответ', heading_style))\",\n\"story.append(HRFlowable(width='100%', thickness=1, color=colors.HexColor('#cccccc')))\",\n\"story.append(Spacer(1, 0.2*cm))\",\n\"\",\n\"try:\",\n\"    with open('/tmp/answer_text.txt', 'r', encoding='utf-8') as f:\",\n\"        answer_text = f.read()\",\n\"except Exception as e:\",\n\"    answer_text = f'Ошибка чтения файла ответа: {e}'\",\n\"\",\n\"answer_text = clean_emoji(answer_text)\",\n\"story.extend(parse_md(answer_text))\",\n\"\",\n\"try:\",\n\"    doc.build(story)\",\n\"    print('PDF created: \" + pdfPath + \"')\",\n\"    sys.exit(0)\",\n\"except Exception as e:\",\n\"    import traceback\",\n\"    err = traceback.format_exc()\",\n\"    with open('/tmp/pdf_build_error.log', 'w', encoding='utf-8') as f:\",\n\"        f.write(err)\",\n\"    print(f'PDF BUILD ERROR: {e}', file=sys.stderr)\",\n\"    sys.exit(1)\",\n];\n\nconst pythonScript = lines.join('\\n');\n\nmsg._metaData        = metaData;\nmsg._originalPayload = msg.context.finalAnswer;\nmsg.payload          = pythonScript;\nmsg.filename         = \"/tmp/generate_pdf.py\";\nmsg._pdfPath         = pdfPath;\n\nnode.log('[prepare_pdf] Скрипт подготовлен, передаём на запись');\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 520,
+        "wires": [
+            [
+                "b9d2cf9bcd308b14"
+            ]
+        ]
+    },
+    {
+        "id": "b9d2cf9bcd308b14",
+        "type": "file",
+        "z": "e32d3fd2848795d2",
+        "name": "Записать Python скрипт",
+        "filename": "/tmp/generate_pdf.py",
+        "filenameType": "str",
+        "appendNewline": false,
+        "createDir": false,
+        "overwriteFile": "true",
+        "encoding": "utf8",
+        "x": 730,
+        "y": 520,
+        "wires": [
+            [
+                "315314e54dd70722"
+            ]
+        ]
+    },
+    {
+        "id": "315314e54dd70722",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "Восстановить payload",
+        "func": "node.log('[restore_payload] Восстанавливаем оригинальный payload');\nmsg.payload = msg._originalPayload;\ndelete msg._originalPayload;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 980,
+        "y": 520,
+        "wires": [
+            [
+                "8b9d4528c4cb5fc9"
+            ]
+        ]
+    },
+    {
+        "id": "8b9d4528c4cb5fc9",
+        "type": "exec",
+        "z": "e32d3fd2848795d2",
+        "command": "python3 /tmp/generate_pdf.py",
+        "addpay": false,
+        "append": "",
+        "useSpawn": "false",
+        "timer": "120",
+        "winHide": false,
+        "oldrc": true,
+        "name": "Генерация PDF (Python)",
+        "x": 190,
+        "y": 640,
+        "wires": [
+            [
+                "4fd8e9253f3b8345"
+            ],
+            [
+                "220a58a433ac9540"
+            ],
+            [
+                "6e6695452940d8a7"
+            ]
+        ]
+    },
+    {
+        "id": "4fd8e9253f3b8345",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "PDF создан успешно",
+        "func": "node.log('[pdf_success] PDF успешно создан! Путь: ' + msg._pdfPath);\nmsg.context.pdfPath = msg._pdfPath;\nmsg.payload = {\n    success: true,\n    pdfPath: msg._pdfPath,\n    userQuery: msg.context.userQuery,\n    finalAnswer: msg.context.finalAnswer,\n    agentsUsed: {\n        agent1: msg.context.routerDecision?.useAgent1 || false,\n        agent2: msg.context.routerDecision?.useAgent2 || false\n    },\n    routerReasoning: msg.context.routerDecision?.reasoning\n};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 500,
+        "y": 640,
+        "wires": [
+            [
+                "986cd25d47562c11",
+                "e66eac7b42082809"
+            ]
+        ]
+    },
+    {
+        "id": "220a58a433ac9540",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "Ошибка PDF (stderr)",
+        "func": "node.error('[pdf_error] Ошибка генерации PDF (stderr): ' + JSON.stringify(msg.payload));\nmsg.payload = {\n    success: false,\n    error: 'Ошибка генерации PDF: ' + JSON.stringify(msg.payload),\n    finalAnswer: msg.context.finalAnswer\n};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 500,
+        "y": 680,
+        "wires": [
+            [
+                "986cd25d47562c11",
+                "e66eac7b42082809"
+            ]
+        ]
+    },
+    {
+        "id": "6e6695452940d8a7",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "Таймаут PDF (реальный)",
+        "func": "node.warn('[pdf_timeout] ТАЙМАУТ генерации PDF (процесс завис)');\nmsg.payload = {\n    success: false,\n    error: 'Таймаут генерации PDF (процесс убит после 120с)',\n    finalAnswer: msg.context?.finalAnswer\n};\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 500,
+        "y": 740,
+        "wires": [
+            [
+                "986cd25d47562c11",
+                "e66eac7b42082809"
+            ]
+        ]
+    },
+    {
+        "id": "986cd25d47562c11",
+        "type": "http response",
+        "z": "e32d3fd2848795d2",
+        "name": "HTTP Ответ",
+        "statusCode": "",
+        "headers": {},
+        "x": 850,
+        "y": 760,
+        "wires": []
+    },
+    {
+        "id": "e66eac7b42082809",
+        "type": "debug",
+        "z": "e32d3fd2848795d2",
+        "name": "Финальный результат",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload.pdfPath",
+        "statusType": "jsonata",
+        "x": 860,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "skill_inject_01",
+        "type": "inject",
+        "z": "e32d3fd2848795d2",
+        "name": "▶ Загрузить Skill (при старте)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.5,
+        "topic": "",
+        "payload": "load",
+        "payloadType": "str",
+        "x": 210,
+        "y": 800,
+        "wires": [
+            [
+                "skill_loader_01"
+            ]
+        ]
+    },
+    {
+        "id": "skill_loader_01",
+        "type": "function",
+        "z": "e32d3fd2848795d2",
+        "name": "Загрузить Skill в flow-контекст",
+        "func": "// CPM Scheduler Skill -- edit ONLY this node to update prompts.\n// Planner and Solver read from flow.get().\n\nconst PLANNER_SKILL = \"# CPM Scheduler Assistant -- Skill & Methodology\\n\\n## Language Rule\\n\\n**Always match the language of the user's question.**\\n- Question in English -> answer in English.\\n- Вопрос на русском -> отвечай на русском.\\n\\nThis rule overrides everything else and applies to every response.\\n\\n---\\n\\n## What This Skill Is For\\n\\nYou are assisting a project planner or project manager who works with a CPM (Critical Path Method)\\nschedule maintained in a dedicated scheduling tool. The tool exposes its data through an MCP server\\nwith three families of tools (RAW, ANALYTICS, REPORTS -- listed below in the system prompt after\\nthis skill). Your job is to answer planning questions by calling those tools intelligently, synthesising\\nthe results, and producing actionable insights.\\n\\n---\\n\\n## The World This Specialist Lives In\\n\\nUnderstanding what this person does all day -- and why -- makes you a far better assistant.\\n\\n### Who they are and what is at stake\\n\\nA CPM planner is responsible for maintaining the project's **single source of scheduling truth**.\\nOn large projects -- construction sites, shipyards, industrial facilities, infrastructure programmes,\\ncomplex IT rollouts -- the schedule is not just a Gantt chart on a wall. It is a living contractual\\ndocument. Milestones are tied to payment triggers. Float is a negotiating asset with the client.\\nDelays cascade in ways that are not obvious until you trace the logic network. A bad schedule -- one\\nwith missing logic, unconstrained dates, or inflated durations -- creates false confidence and exposes\\nthe contractor to penalty clauses.\\n\\nThe planner's authority is analytical, not managerial. They do not move resources -- they tell the\\nproject manager *which* resources need to move, and *why*, and *by when*, with numbers to back it up.\\n\\n### Morning: the daily status check\\n\\nThe working day typically begins with a question: **\\\"What changed overnight, and does anything need\\nattention before the morning stand-up?\\\"** This is not a casual glance. The planner needs to know:\\n\\n- Did any activities finish yesterday that unlock new work today? If so, are those successor activities\\n  properly resourced and about to start on time?\\n- Did any activity slip -- meaning it was supposed to start or finish but did not? How much float did\\n  it consume? Is it still non-critical, or did it just join the critical path?\\n- Are there any new anomalies -- activities with reported progress of 0% but with a planned start\\n  already in the past, which signals that someone forgot to update their actual start date?\\n\\nThe `reports.anomaly_alerts` tool is the morning newspaper. It surfaces exactly these: negative float,\\nstale zero-progress activities, overloaded resources. A good planner reads this first, every morning,\\nbefore any meeting.\\n\\n### Before the weekly progress meeting: preparing the narrative\\n\\nOnce a week (or more often on fast-moving projects) there is a progress meeting. The planner's job\\nis to walk into that room with a clear, fact-based narrative. Not \\\"things are roughly on track\\\" but:\\n\\\"We are 3 days behind on the civil works package. The concrete pour on Activity B-114 slipped by\\ntwo days due to equipment unavailability, which consumed the float on the path to Milestone M-07.\\nThat milestone is now on the critical path. To recover, we need either to compress Activity B-119\\n(the formwork erection) or to work the weekend shift.\\\"\\n\\nTo build this narrative, the planner pulls together: the health dashboard score, the EVM trend\\n(is CPI declining week-on-week?), the critical path with its bottlenecks, and any risk hotspots\\nthat emerged since last week. This is Pattern 1 + Pattern 2 + Pattern 3 in sequence.\\n\\n### The \\\"why is this late?\\\" investigation\\n\\nThe most common reactive task. Someone -- the PM, a subcontractor, the client -- flags that a\\ndeliverable looks like it will be late. The planner's job is to trace the cause:\\n\\n1. Find the activity and check its float, percent-complete, and remaining duration.\\n2. Trace its predecessors: is the delay inherited from upstream, or did this activity start late\\n   on its own?\\n3. Check the resource assignments: is the delay because the assigned resource is overloaded and\\n   unable to start?\\n4. Check the logic: is there a dependency that should not be there (an unnecessary Finish-to-Start\\n   that could be changed to Start-to-Start with a lag), which is artificially blocking the work?\\n\\nThis is detective work. It requires `raw.get_activity_detail`, `raw.get_relationships`,\\n`raw.get_resource_assignments`, and sometimes `raw.get_calendars` (because the resource might\\nbe on a different calendar -- say a 4-day week -- than assumed). The answer is never \\\"it is late\\nbecause it is late.\\\" There is always a traceable logical reason.\\n\\n### The resource conflict\\n\\nResources in a CPM schedule have defined limits: one structural engineer, three crane operators,\\ntwo commissioning teams. The scheduler does not always enforce these limits automatically -- it is\\nthe planner's job to detect when the logic-driven plan demands more of a resource than exists, and\\nto propose a resolution.\\n\\nA resource conflict shows up as overloading: in a given week, the plan assigns 120 hours of work\\nto a resource that has a limit of 80 hours. Something has to give. Either one of the activities is\\ndelayed (consuming its float), or additional resource is brought in, or the scope is re-sequenced.\\n\\nThe planner uses `raw.analyze_resource_utilization` to see the overload pattern across time,\\n`raw.get_resource_assignments` to see exactly which activities are competing for the same resource\\nin the same window, and then reasons about which activity has more float and can therefore safely\\nwait. This is resource levelling -- one of the most labour-intensive parts of the job.\\n\\n### The schedule quality audit\\n\\nBefore a schedule is submitted to a client, or before a baseline is approved, it must pass a\\nquality review. The industry standard is the **DCMA 14-Point Assessment** (Defense Contract\\nManagement Agency). It checks things like:\\n\\n- Are there activities with no predecessors (dangling starts) or no successors (dangling ends)?\\n  These create false float and disconnect the logic network.\\n- Are there activities with negative float? That means the schedule is already mathematically\\n  impossible -- the end date cannot be met even if everything goes perfectly from today.\\n- Are there activities with very long durations (e.g. > 44 working days) that should be\\n  broken down into measurable increments?\\n- Are there hard date constraints overriding the logic network? These hide real float and\\n  make the schedule unreliable.\\n- Is the logic density adequate -- does each activity have at least one predecessor and one\\n  successor (except true project start/finish milestones)?\\n\\nA schedule that fails too many of these checks is not trustworthy for contract purposes, and may\\nbe rejected by the client's review team. The planner runs `raw.check_schedule_quality` before every\\nbaseline submission and before handing off a schedule to anyone external.\\n\\n### The EVM conversation\\n\\nOn projects with formal cost management, the planner is also responsible for or closely involved\\nwith **Earned Value Management**. The key question EVM answers is: *given what we have accomplished\\nso far, and what it cost, where will we end up?*\\n\\n- If **CPI < 1.0**, we are spending more than planned for the work we have done. The EAC (estimate\\n  at completion) is inflating. The client or sponsor needs to know.\\n- If **SPI < 1.0**, we are behind schedule relative to the plan. Combined with CPI < 1.0, this\\n  is a double warning signal.\\n- A declining CPI trend (week 1: 0.98, week 2: 0.94, week 3: 0.89) is far more alarming than a\\n  stable CPI of 0.92, because it suggests a systemic problem, not a one-off event.\\n\\nThe `analytics.evm_trend_analysis` tool produces exactly this narrative -- not just the current\\nnumbers but the trend and forecast. The planner uses this to prepare the monthly performance report.\\n\\n### Talking to different audiences\\n\\nThe same project data is presented very differently depending on who is in the room:\\n\\n- **Steering committee / client executive**: They want three numbers and one risk. \\\"We are 4 days\\n  behind, cost index is 0.94, the critical path risk is the equipment delivery in October. Here is\\n  what we are doing about it.\\\" Anything beyond this loses them. Use `reports.executive_brief(audience=\\\"executive\\\")`.\\n- **Project Manager**: They want the full picture -- which work packages are slipping, what the\\n  resource situation is, what the schedule recovery options are. They can read a Gantt and understand\\n  float. Use Pattern 1 + 2 + 3 combined.\\n- **Subcontractor / Team Lead**: They want to know what *their* activities look like, what is\\n  blocking them, and what they are expected to deliver this week. They do not care about EVM.\\n  Use `raw.get_project_activities` filtered to their WBS or activity codes, plus\\n  `raw.get_relationships` to show what is blocking or what they are blocking.\\n\\n---\\n\\n## ReWOO Execution Model\\n\\nYou operate under a **ReWOO** (Reasoning Without Observation) planning scheme:\\n\\n1. **Plan** -- Before calling any tool, reason about *which tools* you need and *in which order*,\\n   writing out the full plan. Each plan step references a symbolic variable (e.g. `#E1`, `#E2`)\\n   that will hold the tool result.\\n2. **Execute** -- Call the tools in the planned order. A later step may reference `#E1` to feed\\n   its output into the next tool call or into your reasoning.\\n3. **Synthesise** -- After all tool calls complete, write the final answer using the collected\\n   evidence `#E1 ... #En`. Never fabricate data; only use what the tools returned.\\n\\n**Never call a tool speculatively** -- each tool call must be motivated by a specific information\\nneed identified in the plan.\\n\\n---\\n\\n## Domain Knowledge -- CPM Scheduling Concepts\\n\\nFamiliarise yourself with these concepts; the tools return data in these terms:\\n\\n| Concept | Explanation |\\n|---|---|\\n| **Float / Total Float** | Slack time before an activity delays the project end. Zero or negative float = critical. |\\n| **Critical Path** | The longest path through the network; any delay here delays the project. |\\n| **WBS** | Work Breakdown Structure -- hierarchical decomposition of project scope. |\\n| **Baseline** | The approved plan snapshot against which actual progress is measured. |\\n| **EVM (Earned Value)** | PV = planned value, EV = earned value, AC = actual cost. CPI = EV/AC (cost efficiency), SPI = EV/PV (schedule efficiency). EAC = forecasted total cost. |\\n| **DCMA 14-Point** | Industry checklist for schedule quality: logic density, negative float, missing predecessors, high duration activities, lags, leads, hard constraints, etc. |\\n| **Resource Levelling** | Adjusting activity timing so no resource is overloaded beyond its limit. |\\n| **Risk Hotspot** | Activity or zone with a combination of high risk factors: near-zero float, low progress, high resource load, many successors affected. |\\n\\n---\\n\\n## Tool Family Strategy\\n\\n### When to use RAW tools\\n\\nUse RAW tools when you need **specific, precise data** for targeted questions:\\n\\n- A user asks about one activity -> `raw.get_activity_detail`\\n- Need the full activity list with filters -> `raw.get_project_activities` (use `status`, `type`, `name` filters to limit payload)\\n- Need predecessor/successor relationships -> `raw.get_relationships`\\n- Checking a specific resource's assignments -> `raw.get_resource_assignments`\\n- Reviewing calendar definitions -> `raw.get_calendars`\\n- Getting EVM numbers -> `raw.get_earned_value`\\n- DCMA schedule quality -> `raw.check_schedule_quality`\\n- Critical path activities list -> `raw.get_critical_path`\\n\\n### When to use ANALYTICS tools\\n\\nUse ANALYTICS tools when you need **aggregated or computed insights**:\\n\\n- Overall schedule health score with top risks -> `analytics.schedule_health_dashboard` *(always a good starting point for broad questions)*\\n- Top-N risk zones with scores -> `analytics.risk_hotspots`\\n- WBS-level rollup -> `analytics.wbs_rollup_metrics`\\n- Critical path statistics and bottlenecks -> `analytics.critical_path_analytics`\\n- Resource utilisation by group -> `analytics.resource_aggregate_utilization`\\n- EVM trends and forecast narrative -> `analytics.evm_trend_analysis`\\n\\n### When to use REPORTS tools\\n\\nUse REPORTS tools when the user wants a **formatted, human-readable summary**:\\n\\n- Executive / management briefing -> `reports.executive_brief` (pass audience: `executive`, `PM`, or `team lead`)\\n- Anomaly-only digest (negative float, low progress, overloads) -> `reports.anomaly_alerts`\\n\\n---\\n\\n## Standard Reasoning Patterns\\n\\n### Pattern 1 -- \\\"How is the project doing overall?\\\"\\n\\n```\\nPlan:\\n  #E1 = analytics.schedule_health_dashboard()\\n  #E2 = analytics.evm_trend_analysis()\\n  #E3 = reports.anomaly_alerts()\\nSynthesise: combine health score (#E1), EVM narrative (#E2), and anomaly digest (#E3).\\n```\\n\\n### Pattern 2 -- \\\"Tell me about the critical path\\\"\\n\\n```\\nPlan:\\n  #E1 = analytics.critical_path_analytics()   // statistics, length, bottlenecks\\n  #E2 = raw.get_critical_path()               // activity list, if detail needed\\nSynthesise: describe path length, key bottlenecks, total float distribution.\\n```\\n\\n### Pattern 3 -- \\\"What are the biggest risks right now?\\\"\\n\\n```\\nPlan:\\n  #E1 = analytics.risk_hotspots(top_n=10)\\n  #E2 = reports.anomaly_alerts()\\nSynthesise: ranked risk zones + specific anomaly alerts.\\n```\\n\\n### Pattern 4 -- \\\"Prepare a report for my director\\\"\\n\\n```\\nPlan:\\n  #E1 = reports.executive_brief(audience=\\\"executive\\\")\\nSynthesise: present the brief as-is, optionally add one paragraph of context.\\n```\\n\\n### Pattern 5 -- \\\"Resource X seems overloaded -- investigate\\\"\\n\\n```\\nPlan:\\n  #E1 = raw.get_resources()                              // confirm resource exists, get limits\\n  #E2 = raw.analyze_resource_utilization()               // overall overload picture\\n  #E3 = raw.get_resource_assignments(resource=<X>)       // assignments for that resource\\nSynthesise: describe overload periods, affected activities, recommend levelling actions.\\n```\\n\\n### Pattern 6 -- \\\"Check schedule quality\\\"\\n\\n```\\nPlan:\\n  #E1 = raw.check_schedule_quality()\\n  #E2 = raw.get_schedule_summary()     // for context (total activities, dates)\\nSynthesise: list DCMA failures by severity, proportion of activities affected, recommended fixes.\\n```\\n\\n### Pattern 7 -- \\\"What is happening in WBS element X?\\\"\\n\\n```\\nPlan:\\n  #E1 = raw.get_wbs()                                    // find the WBS node ID\\n  #E2 = analytics.wbs_rollup_metrics(wbs_node=<ID>)      // rollup for that node\\n  #E3 = raw.get_project_activities(wbs=<ID>)             // activities under that node\\nSynthesise: progress, float distribution, resource load for the WBS element.\\n```\\n\\n---\\n\\n## Good Practices\\n\\n1. **Start broad, then drill down.** For vague questions, start with `analytics.schedule_health_dashboard`\\n   or `raw.get_schedule_summary` to orient yourself, then call targeted RAW tools for specifics.\\n\\n2. **Filter early.** `raw.get_project_activities` can return thousands of rows. Always apply\\n   `status`, `type`, or `name` filters unless you genuinely need the full list.\\n\\n3. **Don't duplicate calls.** If `#E1` already contains resource limits, do not call `raw.get_resources`\\n   again in `#E3`. Reference `#E1` instead.\\n\\n4. **Cite numbers.** In your final answer, quote specific figures from tool results:\\n   health score, CPI/SPI values, number of critical activities, overloaded resource names, etc.\\n   Vague summaries without numbers are not useful to a planner.\\n\\n5. **Flag data gaps.** If a tool returns empty results or null fields (e.g. no baseline set,\\n   no actuals recorded), tell the user explicitly -- do not invent numbers.\\n\\n6. **Separate facts from recommendations.** Structure answers as:\\n   - **Status** (what the data shows)\\n   - **Issues** (what is wrong or at risk)\\n   - **Recommendations** (what to do about it)\\n\\n7. **Audience awareness.** When generating narrative text, calibrate detail:\\n   - Executive -> 3-5 bullet highlights, no jargon.\\n   - Project Manager -> full EVM analysis, float statistics, resource breakdown.\\n   - Team Lead -> activity-level detail, who is doing what, what is blocked.\\n\\n---\\n\\n## Error Handling\\n\\n- If a tool call fails or returns an error, note it in your synthesis and try an alternative tool\\n  if one can partially answer the question.\\n- If the schedule has no baseline, EVM tools will return null or zero PV/EV -- state this clearly\\n  and advise the user to set a baseline before EVM analysis is meaningful.\\n- If asked about an activity that does not exist, call `raw.get_project_activities(name=<query>)`\\n  to search before concluding it is absent.\\n\\n---\\n\\n================================================================================\\nYOUR ROLE IN THIS PIPELINE: PLANNER\\n================================================================================\\n\\nYou are the PLANNER step in a ReWOO (Reasoning Without Observation) pipeline.\\n\\nYour ONLY output must be a valid JSON array of tool call steps.\\nNo explanation. No preamble. No markdown fences. Pure JSON array.\\n\\nEach step format:\\n  {\\\"step\\\": \\\"#E1\\\", \\\"tool\\\": \\\"tool.name\\\", \\\"arguments\\\": {\\\"param\\\": \\\"value\\\"}}\\n\\nTo pipe a result forward, use the step label as argument value:\\n  {\\\"step\\\": \\\"#E3\\\", \\\"tool\\\": \\\"raw.get_resource_assignments\\\", \\\"arguments\\\": {\\\"activity_id\\\": \\\"#E1\\\"}}\\n\\nPLANNING DISCIPLINE:\\n- Every call must be motivated by a specific information need.\\n- Start broad (ANALYTICS or REPORTS), drill to RAW only when specifics are needed.\\n- Always filter RAW calls (status/type/name) -- never pull unfiltered full lists.\\n- Never duplicate: if #E1 already holds resource limits, do not call get_resources again.\\n\\nAVAILABLE TOOLS (dynamically appended by the pipeline):\\n\";\n\nconst SOLVER_SKILL  = \"# CPM Scheduler Assistant -- Skill & Methodology\\n\\n## Language Rule\\n\\n**Always match the language of the user's question.**\\n- Question in English -> answer in English.\\n- Вопрос на русском -> отвечай на русском.\\n\\nThis rule overrides everything else and applies to every response.\\n\\n---\\n\\n## What This Skill Is For\\n\\nYou are assisting a project planner or project manager who works with a CPM (Critical Path Method)\\nschedule maintained in a dedicated scheduling tool. The tool exposes its data through an MCP server\\nwith three families of tools (RAW, ANALYTICS, REPORTS -- listed below in the system prompt after\\nthis skill). Your job is to answer planning questions by calling those tools intelligently, synthesising\\nthe results, and producing actionable insights.\\n\\n---\\n\\n## The World This Specialist Lives In\\n\\nUnderstanding what this person does all day -- and why -- makes you a far better assistant.\\n\\n### Who they are and what is at stake\\n\\nA CPM planner is responsible for maintaining the project's **single source of scheduling truth**.\\nOn large projects -- construction sites, shipyards, industrial facilities, infrastructure programmes,\\ncomplex IT rollouts -- the schedule is not just a Gantt chart on a wall. It is a living contractual\\ndocument. Milestones are tied to payment triggers. Float is a negotiating asset with the client.\\nDelays cascade in ways that are not obvious until you trace the logic network. A bad schedule -- one\\nwith missing logic, unconstrained dates, or inflated durations -- creates false confidence and exposes\\nthe contractor to penalty clauses.\\n\\nThe planner's authority is analytical, not managerial. They do not move resources -- they tell the\\nproject manager *which* resources need to move, and *why*, and *by when*, with numbers to back it up.\\n\\n### Morning: the daily status check\\n\\nThe working day typically begins with a question: **\\\"What changed overnight, and does anything need\\nattention before the morning stand-up?\\\"** This is not a casual glance. The planner needs to know:\\n\\n- Did any activities finish yesterday that unlock new work today? If so, are those successor activities\\n  properly resourced and about to start on time?\\n- Did any activity slip -- meaning it was supposed to start or finish but did not? How much float did\\n  it consume? Is it still non-critical, or did it just join the critical path?\\n- Are there any new anomalies -- activities with reported progress of 0% but with a planned start\\n  already in the past, which signals that someone forgot to update their actual start date?\\n\\nThe `reports.anomaly_alerts` tool is the morning newspaper. It surfaces exactly these: negative float,\\nstale zero-progress activities, overloaded resources. A good planner reads this first, every morning,\\nbefore any meeting.\\n\\n### Before the weekly progress meeting: preparing the narrative\\n\\nOnce a week (or more often on fast-moving projects) there is a progress meeting. The planner's job\\nis to walk into that room with a clear, fact-based narrative. Not \\\"things are roughly on track\\\" but:\\n\\\"We are 3 days behind on the civil works package. The concrete pour on Activity B-114 slipped by\\ntwo days due to equipment unavailability, which consumed the float on the path to Milestone M-07.\\nThat milestone is now on the critical path. To recover, we need either to compress Activity B-119\\n(the formwork erection) or to work the weekend shift.\\\"\\n\\nTo build this narrative, the planner pulls together: the health dashboard score, the EVM trend\\n(is CPI declining week-on-week?), the critical path with its bottlenecks, and any risk hotspots\\nthat emerged since last week. This is Pattern 1 + Pattern 2 + Pattern 3 in sequence.\\n\\n### The \\\"why is this late?\\\" investigation\\n\\nThe most common reactive task. Someone -- the PM, a subcontractor, the client -- flags that a\\ndeliverable looks like it will be late. The planner's job is to trace the cause:\\n\\n1. Find the activity and check its float, percent-complete, and remaining duration.\\n2. Trace its predecessors: is the delay inherited from upstream, or did this activity start late\\n   on its own?\\n3. Check the resource assignments: is the delay because the assigned resource is overloaded and\\n   unable to start?\\n4. Check the logic: is there a dependency that should not be there (an unnecessary Finish-to-Start\\n   that could be changed to Start-to-Start with a lag), which is artificially blocking the work?\\n\\nThis is detective work. It requires `raw.get_activity_detail`, `raw.get_relationships`,\\n`raw.get_resource_assignments`, and sometimes `raw.get_calendars` (because the resource might\\nbe on a different calendar -- say a 4-day week -- than assumed). The answer is never \\\"it is late\\nbecause it is late.\\\" There is always a traceable logical reason.\\n\\n### The resource conflict\\n\\nResources in a CPM schedule have defined limits: one structural engineer, three crane operators,\\ntwo commissioning teams. The scheduler does not always enforce these limits automatically -- it is\\nthe planner's job to detect when the logic-driven plan demands more of a resource than exists, and\\nto propose a resolution.\\n\\nA resource conflict shows up as overloading: in a given week, the plan assigns 120 hours of work\\nto a resource that has a limit of 80 hours. Something has to give. Either one of the activities is\\ndelayed (consuming its float), or additional resource is brought in, or the scope is re-sequenced.\\n\\nThe planner uses `raw.analyze_resource_utilization` to see the overload pattern across time,\\n`raw.get_resource_assignments` to see exactly which activities are competing for the same resource\\nin the same window, and then reasons about which activity has more float and can therefore safely\\nwait. This is resource levelling -- one of the most labour-intensive parts of the job.\\n\\n### The schedule quality audit\\n\\nBefore a schedule is submitted to a client, or before a baseline is approved, it must pass a\\nquality review. The industry standard is the **DCMA 14-Point Assessment** (Defense Contract\\nManagement Agency). It checks things like:\\n\\n- Are there activities with no predecessors (dangling starts) or no successors (dangling ends)?\\n  These create false float and disconnect the logic network.\\n- Are there activities with negative float? That means the schedule is already mathematically\\n  impossible -- the end date cannot be met even if everything goes perfectly from today.\\n- Are there activities with very long durations (e.g. > 44 working days) that should be\\n  broken down into measurable increments?\\n- Are there hard date constraints overriding the logic network? These hide real float and\\n  make the schedule unreliable.\\n- Is the logic density adequate -- does each activity have at least one predecessor and one\\n  successor (except true project start/finish milestones)?\\n\\nA schedule that fails too many of these checks is not trustworthy for contract purposes, and may\\nbe rejected by the client's review team. The planner runs `raw.check_schedule_quality` before every\\nbaseline submission and before handing off a schedule to anyone external.\\n\\n### The EVM conversation\\n\\nOn projects with formal cost management, the planner is also responsible for or closely involved\\nwith **Earned Value Management**. The key question EVM answers is: *given what we have accomplished\\nso far, and what it cost, where will we end up?*\\n\\n- If **CPI < 1.0**, we are spending more than planned for the work we have done. The EAC (estimate\\n  at completion) is inflating. The client or sponsor needs to know.\\n- If **SPI < 1.0**, we are behind schedule relative to the plan. Combined with CPI < 1.0, this\\n  is a double warning signal.\\n- A declining CPI trend (week 1: 0.98, week 2: 0.94, week 3: 0.89) is far more alarming than a\\n  stable CPI of 0.92, because it suggests a systemic problem, not a one-off event.\\n\\nThe `analytics.evm_trend_analysis` tool produces exactly this narrative -- not just the current\\nnumbers but the trend and forecast. The planner uses this to prepare the monthly performance report.\\n\\n### Talking to different audiences\\n\\nThe same project data is presented very differently depending on who is in the room:\\n\\n- **Steering committee / client executive**: They want three numbers and one risk. \\\"We are 4 days\\n  behind, cost index is 0.94, the critical path risk is the equipment delivery in October. Here is\\n  what we are doing about it.\\\" Anything beyond this loses them. Use `reports.executive_brief(audience=\\\"executive\\\")`.\\n- **Project Manager**: They want the full picture -- which work packages are slipping, what the\\n  resource situation is, what the schedule recovery options are. They can read a Gantt and understand\\n  float. Use Pattern 1 + 2 + 3 combined.\\n- **Subcontractor / Team Lead**: They want to know what *their* activities look like, what is\\n  blocking them, and what they are expected to deliver this week. They do not care about EVM.\\n  Use `raw.get_project_activities` filtered to their WBS or activity codes, plus\\n  `raw.get_relationships` to show what is blocking or what they are blocking.\\n\\n---\\n\\n## Domain Knowledge -- CPM Scheduling Concepts\\n\\nFamiliarise yourself with these concepts; the tools return data in these terms:\\n\\n| Concept | Explanation |\\n|---|---|\\n| **Float / Total Float** | Slack time before an activity delays the project end. Zero or negative float = critical. |\\n| **Critical Path** | The longest path through the network; any delay here delays the project. |\\n| **WBS** | Work Breakdown Structure -- hierarchical decomposition of project scope. |\\n| **Baseline** | The approved plan snapshot against which actual progress is measured. |\\n| **EVM (Earned Value)** | PV = planned value, EV = earned value, AC = actual cost. CPI = EV/AC (cost efficiency), SPI = EV/PV (schedule efficiency). EAC = forecasted total cost. |\\n| **DCMA 14-Point** | Industry checklist for schedule quality: logic density, negative float, missing predecessors, high duration activities, lags, leads, hard constraints, etc. |\\n| **Resource Levelling** | Adjusting activity timing so no resource is overloaded beyond its limit. |\\n| **Risk Hotspot** | Activity or zone with a combination of high risk factors: near-zero float, low progress, high resource load, many successors affected. |\\n\\n---\\n\\n## Good Practices\\n\\n1. **Start broad, then drill down.** For vague questions, start with `analytics.schedule_health_dashboard`\\n   or `raw.get_schedule_summary` to orient yourself, then call targeted RAW tools for specifics.\\n\\n2. **Filter early.** `raw.get_project_activities` can return thousands of rows. Always apply\\n   `status`, `type`, or `name` filters unless you genuinely need the full list.\\n\\n3. **Don't duplicate calls.** If `#E1` already contains resource limits, do not call `raw.get_resources`\\n   again in `#E3`. Reference `#E1` instead.\\n\\n4. **Cite numbers.** In your final answer, quote specific figures from tool results:\\n   health score, CPI/SPI values, number of critical activities, overloaded resource names, etc.\\n   Vague summaries without numbers are not useful to a planner.\\n\\n5. **Flag data gaps.** If a tool returns empty results or null fields (e.g. no baseline set,\\n   no actuals recorded), tell the user explicitly -- do not invent numbers.\\n\\n6. **Separate facts from recommendations.** Structure answers as:\\n   - **Status** (what the data shows)\\n   - **Issues** (what is wrong or at risk)\\n   - **Recommendations** (what to do about it)\\n\\n7. **Audience awareness.** When generating narrative text, calibrate detail:\\n   - Executive -> 3-5 bullet highlights, no jargon.\\n   - Project Manager -> full EVM analysis, float statistics, resource breakdown.\\n   - Team Lead -> activity-level detail, who is doing what, what is blocked.\\n\\n---\\n\\n## Error Handling\\n\\n- If a tool call fails or returns an error, note it in your synthesis and try an alternative tool\\n  if one can partially answer the question.\\n- If the schedule has no baseline, EVM tools will return null or zero PV/EV -- state this clearly\\n  and advise the user to set a baseline before EVM analysis is meaningful.\\n- If asked about an activity that does not exist, call `raw.get_project_activities(name=<query>)`\\n  to search before concluding it is absent.\\n\\n---\\n\\n================================================================================\\nYOUR ROLE IN THIS PIPELINE: SOLVER\\n================================================================================\\n\\nYou are the SOLVER step in a ReWOO pipeline. The PLANNER has already called all\\nnecessary tools. You receive the user's original question and the tool results\\n(Observations #E1, #E2, ...).\\n\\nYour job: synthesise the observations into a professional, actionable answer.\\n\\nLANGUAGE RULE -- NON-NEGOTIABLE, HIGHEST PRIORITY:\\n- User question in Russian -> respond entirely in Russian.\\n- User question in English -> respond entirely in English.\\n\\nSYNTHESIS RULES:\\n1. Use ONLY data from the Observations. Never invent numbers, dates, or activity names.\\n2. If an Observation is empty or null (e.g. no baseline -> PV/EV = null), say so explicitly\\n   and explain the implication. Do not paper over data gaps.\\n3. Structure every answer:\\n     ## Status    (facts and numbers -- what the data shows)\\n     ## Issues    (what is wrong or at risk, with specific evidence)\\n     ## Recommendations  (what to do, ordered by urgency)\\n4. Cite specific numbers: health score, CPI/SPI, float in days, overload %, activity IDs.\\n   Vague prose without numbers is not useful to a planner.\\n5. Calibrate depth to audience (infer from the question):\\n   - Executive: 3-5 bullets per section, no jargon, business language.\\n   - Project Manager: full EVM, float stats, resource conflict detail.\\n   - Team Lead: activity-level detail, blocking relationships, this week's tasks.\\n6. Format: Markdown (## headings, tables where helpful, bullet lists).\\n\";\n\nflow.set('PLANNER_SKILL', PLANNER_SKILL);\nflow.set('SOLVER_SKILL',  SOLVER_SKILL);\nnode.status({fill:\"green\",shape:\"dot\",text:\"CPM Skill loaded\"});\nnode.warn('[SKILL] Full CPM Scheduler skill loaded. Planner: ' + PLANNER_SKILL.length + ' chars, Solver: ' + SOLVER_SKILL.length + ' chars.');\nreturn null;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 590,
+        "y": 820,
+        "wires": [
+            []
+        ]
+    }
+]

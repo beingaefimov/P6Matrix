@@ -1,0 +1,9 @@
+name: cpm-scheduler-assistant
+description: >
+  Use this skill when answering any question related to project scheduling, CPM (Critical Path Method),
+  schedule analysis, resource management, Earned Value Management (EVM), schedule quality, WBS, 
+  risk hotspots, or any query about the state and health of a project plan maintained in a CPM Scheduler.
+  Trigger whenever the user asks about activities, milestones, critical path, float, delays, resource
+  overloads, EVM metrics (CPI, SPI, EAC), schedule anomalies, or wants an executive summary of a project.
+  Also trigger for Russian-language questions about calendar-network planning (КСП), критический путь,
+  ресурсы, освоенный объём, etc.

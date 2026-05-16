@@ -1,0 +1,38 @@
+У меня есть CPM Scheduler у которого есть MCP сервер, реализующий инструменты, перечисленные ниже.
+Напиши skill (методологию) применения этого сервера для ответов на вопросы, касающиеся календарно-сетевого планирования.
+Сама методология должна быть англоязычной, но в ней надо сразу указать, что если вопрос на английском, то и ответ набираем по-английски, а если вопрос на русском - то и ответ набираем по-русски.
+Искомый скилл (методология) будет подаваться в составе system prompt при работе LLM по схеме ReWOO.
+Скилл должен описывать и технику применения инструментов, но и методологические указания - какова логика использования, описание предметной области для LLM.
+Представь что ты планировщик-аналитик, который работал с этими инструментами с помощью LLM, и вот ты увольняешься (не пиши это прямо) и описываешь своему последователю, как ты работал.
+То есть скилл (методология) должен содержать доменные знания о том, как LLM должен пользоваться этими инструмментами (причём по схеме ReWOO), и зачем (какие практические проблемы решаются в этом домене).
+Надо дать больше описаний практической применимости. Представь, что описываешь рабочий день такого специалиста. Что именно он делает, поподробнее. Не просто как вызывать инстументы, а зачем.
+Не записывай перечень инструментов прямо в эот промпт (скилл, методологию) - я всё равно буду добавлять перечень инструментов по данным MCP сервера каждый раз.
+Напиши так, чтобы перечень интрументов можно было добавлять к этому скиллу в системный промпт вслед за скиллом.
+
+Вот инструменты MCP-сервера:
+RAW - Детальные данные / Detailed Data
+
+raw.get_schedule_summary : Сводка проекта: общие данные, даты, статусы / Project summary: meta, dates, status counts
+raw.get_project_activities: Список работ с фильтрами / Activities list with filters (status, type, name, aggregate_by)
+raw.get_critical_path: Критический путь / Critical path activities
+raw.get_resources: Список ресурсов и их лимиты / Resources list and limits
+raw.get_resource_assignments: Назначения ресурсов на работы / Resource-activity assignments
+raw.analyze_resource_utilization: Анализ загрузки ресурсов / Resource utilization analysis (totals, overloads)
+raw.check_schedule_quality: DCMA-проверки качества расписания / DCMA-style schedule quality checks
+raw.get_wbs: Иерархическая структура работ (WBS) / Work Breakdown Structure
+raw.get_relationships: Связи между работами (предшественники/последователи) / Activity relationships (pred/succ)
+raw.get_calendars: Определения календарей (дни недели, часы) / Calendar definitions
+raw.get_earned_value: Показатели освоенного объёма (EVM): BAC, PV, EV, AC, CPI, SPI, EAC / Earned Value Management metrics
+raw.get_activity_detail: Детализация одной работы (поля, связи, назначения) / Detail for a single activity
+ANALYTICS - Агрегированная аналитика / Aggregated Analytics
+
+analytics.schedule_health_dashboard: Композитная оценка здоровья расписания (0-100), топ-3 риска / Composite schedule health score (0-100), top-3 risks
+analytics.risk_hotspots: Топ-N зон риска с расчётом risk_score / Top-N risk zones with computed risk_score
+analytics.wbs_rollup_metrics: Агрегированные метрики по уровням WBS / Aggregated metrics by WBS level
+analytics.critical_path_analytics: Статистика критического пути: длина, бутылочные горлышки / Critical path statistics: length, bottlenecks
+analytics.resource_aggregate_utilization: Загрузка ресурсов по группам (тип/команда) / Resource utilization by groups (type/team)
+analytics.evm_trend_analysis: Тренды EVM (CPI/SPI) с прогнозом и текстовым выводом / EVM trends with forecast and narrative
+REPORTS - Готовые отчёты / Ready Reports
+
+reports.executive_brief: Краткий отчёт под аудиторию (руководство / менеджер / тимлид) / Executive brief tailored to audience (executive / PM / team lead)
+reports.anomaly_alerts: Только отклонения от нормы: отрицательный резерв, низкий прогресс / Anomaly-only alerts: negative float, low progress
