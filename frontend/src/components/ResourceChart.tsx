@@ -321,7 +321,7 @@ export default function ResourceChart({ resources, resourceLoad, startDate, acti
               </div>
               <div>
                 <label className="block text-[10px] text-steel-500 font-medium mb-1">{t('resource_name_label')}</label>
-                <input value={newResName} onChange={e => setNewResName(e.target.value)} placeholder={t('new_project_placeholder')}
+                <input value={newResName} onChange={e => setNewResName(e.target.value)} placeholder={t('new_res_placeholder')}
                   className="w-full px-3 py-2 text-sm bg-steel-800 border border-steel-600 rounded-lg text-steel-100 focus:outline-none focus:border-amber-400/60 transition-colors" />
               </div>
               <div className="grid grid-cols-2 gap-3">
