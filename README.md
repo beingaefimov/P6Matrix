@@ -6,7 +6,7 @@
 Application for project schedule calculation using the Critical Path Method (CPM) with a matrix engine<sup>[1]</sup>. 
 Uses WebGPU for client-side calculations, allowing the entire project to be displayed with minimal delays.
 
-<sub>[1] **Техническая справка / Technical note:** Под "матричным движком" подразумевается модуль, который преобразует сетевой граф задач в разреженную матрицу смежности (формат CSR) и выполняет её параллельный обход и итеративные вычисления непосредственно на GPU через WebGPU Compute Shaders, минуя ограничения CPU / By "matrix engine" we mean a module that converts the task network graph into a sparse adjacency matrix (CSR format) and performs its parallel traversal and iterative computations directly on the GPU via WebGPU Compute Shaders, bypassing CPU limitations
+<sub>[1] Под **"матричным движком"** подразумевается модуль, который преобразует сетевой граф задач в разреженную матрицу смежности (формат CSR) и выполняет её параллельный обход и итеративные вычисления непосредственно на GPU через WebGPU Compute Shaders, минуя ограничения CPU / By **"matrix engine"** we mean a module that converts the task network graph into a sparse adjacency matrix (CSR format) and performs its parallel traversal and iterative computations directly on the GPU via WebGPU Compute Shaders, bypassing CPU limitations
 </sub>
 
 ![animated](animated.gif)
