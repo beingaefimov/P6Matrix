@@ -1,14 +1,16 @@
 # P6Matrix - CPM Scheduler
 
-Приложение для расчёта проектного расписания по методу критического пути (CPM) с матричным движком.
+Приложение для расчёта проектного расписания по методу критического пути (CPM) с матричным движком[^1]. 
 Использует WebGPU для расчётов на клиенте, что позволяет отображать весь проект целиком с минимальными задержками.
 
-Application for project schedule calculation using the Critical Path Method (CPM) with a matrix engine.
-Uses WebGPU for client-side calculations, allowing the entire project to be displayed with minimal delays
+Application for project schedule calculation using the Critical Path Method (CPM) with a matrix engine[^1]. 
+Uses WebGPU for client-side calculations, allowing the entire project to be displayed with minimal delays.
 
 ![animated](animated.gif)
 
 ---
+
+[^1]: **Техническая справка / Technical note:** Под "матричным движком" подразумевается модуль, который преобразует сетевой граф задач в разреженную матрицу смежности (формат CSR) и выполняет её параллельный обход и итеративные вычисления непосредственно на GPU через WebGPU Compute Shaders, минуя ограничения CPU / By "matrix engine" we mean a module that converts the task network graph into a sparse adjacency matrix (CSR format) and performs its parallel traversal and iterative computations directly on the GPU via WebGPU Compute Shaders, bypassing CPU limitations
 
 ## Установка и запуск / Installation & Setup
 
